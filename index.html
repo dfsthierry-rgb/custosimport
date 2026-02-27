@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Container Calculator v1.7 - Gestão de Lançamentos</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2.3.1"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        .card-overflow { overflow: hidden; }
+        .modal-overlay { backdrop-filter: blur(4px); }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .animate-slide-in { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .input-dark { background: #1e293b; border: 1px solid #334155; color: #f1f5f9; }
+        .input-dark:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.2); outline: none; }
+        .input-dark::placeholder { color: #64748b; }
+        .label-dark { color: #94a3b8; }
+        .btn-primary { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+        .btn-primary:hover { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+        .btn-success { background: linear-gradient(135deg, #10b981, #059669); }
+        .btn-success:hover { background: linear-gradient(135deg, #059669, #047857); }
+        .btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .btn-danger:hover { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+        .btn-secondary { background: linear-gradient(135deg, #475569, #334155); }
+        .btn-secondary:hover { background: linear-gradient(135deg, #334155, #1e293b); }
+        .value-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+        .value-container { min-width: 0; overflow: hidden; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .status-online { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
+        .status-offline { background-color: #ef4444; box-shadow: 0 0 8px #ef4444; }
+        .status-syncing { background-color: #f59e0b; box-shadow: 0 0 8px #f59e0b; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .loading-spinner { border: 2px solid #334155; border-top: 2px solid #6366f1; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .code-block { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; font-family: 'Courier New', monospace; font-size: 11px; color: #e2e8f0; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
+        .step-number { width: 28px; height: 28px; background: linear-gradient(135deg, #6366f1, #8b5cf6); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0; }
+        .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 9999; animation: toastIn 0.3s ease-out; }
+        .toast-success { background: #059669; color: white; }
+        .toast-error { background: #dc2626; color: white; }
+        .toast-info { background: #6366f1; color: white; }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 min-h-screen text-slate-100">
+    <!-- Header -->
+    <header class="bg-slate-800/90 backdrop-blur-md border-b border-slate-700 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                        <i class="fas fa-ship text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl md:text-2xl font-black text-white">Container Calculator <span class="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded ml-2">v1.7</span></h1>
+                        <p class="text-xs text-slate-400">Gestão de Lançamentos</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2 px-3 py-1.5 bg-slate-700/50 rounded-lg cursor-pointer" onclick="openModalConfig()">
+                        <span id="status-dot" class="status-dot status-offline"></span>
+                        <span id="status-text" class="text-xs text-slate-400">Offline</span>
+                        <div id="loading-spinner" class="loading-spinner hidden"></div>
+                    </div>
+                    <button onclick="openModal()" class="btn-primary text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center gap-2 flex-shrink-0">
+                        <i class="fas fa-plus"></i>
+                        <span class="hidden sm:inline">Novo Lançamento</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Filtros -->
+    <section class="bg-slate-800/60 border-b border-slate-700 sticky top-[88px] z-30">
+        <div class="max-w-7xl mx-auto px-4 py-3">
+            <div class="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-semibold text-slate-400 uppercase"><i class="fas fa-filter mr-1"></i>Filtros:</span>
+                    <select id="filtro_ano" onchange="renderDashboard()" class="input-dark rounded-lg py-2 px-3 text-sm min-w-[100px]">
+                        <option value="">Todos os Anos</option>
+                    </select>
+                    <select id="filtro_mes" onchange="renderDashboard()" class="input-dark rounded-lg py-2 px-3 text-sm min-w-[120px]">
+                        <option value="">Todos os Meses</option>
+                        <option value="01">Janeiro</option><option value="02">Fevereiro</option><option value="03">Março</option>
+                        <option value="04">Abril</option><option value="05">Maio</option><option value="06">Junho</option>
+                        <option value="07">Julho</option><option value="08">Agosto</option><option value="09">Setembro</option>
+                        <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+                    </select>
+                    <select id="filtro_tipo" onchange="renderDashboard()" class="input-dark rounded-lg py-2 px-3 text-sm min-w-[100px]">
+                        <option value="">Todos os Tipos</option>
+                        <option value="FCL">FCL</option>
+                        <option value="LCL">LCL</option>
+                    </select>
+                    <select id="filtro_exportador" onchange="renderDashboard()" class="input-dark rounded-lg py-2 px-3 text-sm min-w-[160px]">
+                        <option value="">Todos os Exportadores</option>
+                    </select>
+                    <button onclick="limparFiltros()" class="text-xs text-slate-400 hover:text-white transition-colors px-2">
+                        <i class="fas fa-times-circle"></i> Limpar
+                    </button>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span id="contagem_filtros" class="text-xs text-slate-400">0 lançamentos</span>
+                    <button onclick="syncFromSheets()" class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors" title="Sincronizar com Google Sheets">
+                        <i class="fas fa-sync-alt"></i> Sincronizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Dashboard -->
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        <!-- Gráfico Tendência (largura total) -->
+        <section class="mb-6">
+            <div class="bg-slate-800/60 border border-slate-700 rounded-2xl overflow-hidden">
+                <div class="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-chart-line text-indigo-400"></i>
+                        <span class="font-bold text-white text-sm">Tendência de Custos Médios por Mês</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-dollar-sign text-yellow-400 text-xs"></i>
+                        <span class="text-xs text-slate-400">Dólar Médio: <span id="dash_dolar_medio" class="text-yellow-400 font-bold">R$ 0,00</span></span>
+                    </div>
+                </div>
+                <div class="p-4"><div style="position:relative;height:280px;width:100%"><canvas id="chartCustos"></canvas></div></div>
+            </div>
+        </section>
+
+        <!-- Gráfico Hierarquia (largura total) -->
+        <section class="mb-6">
+            <div class="bg-slate-800/60 border border-slate-700 rounded-2xl overflow-hidden">
+                <div class="px-4 py-3 border-b border-slate-700 flex items-center gap-2">
+                    <i class="fas fa-th-large text-emerald-400"></i>
+                    <span class="font-bold text-white text-sm">Hierarquia de Custos</span>
+                </div>
+                <div class="p-4"><div style="position:relative;height:260px;width:100%"><canvas id="chartComposicao"></canvas></div></div>
+            </div>
+        </section>
+
+        <!-- Composição de Custos Geral -->
+        <section class="mb-6">
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fas fa-layer-group text-indigo-400 text-sm"></i></div>
+                <h2 class="text-lg font-black text-white">Composição de Custos</h2>
+            </div>
+
+            <!-- Cards detalhados com % do FOB -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                <!-- Produtos -->
+                <div class="bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border border-emerald-500/30 rounded-2xl overflow-hidden">
+                    <div class="p-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center"><i class="fas fa-box text-emerald-400 text-sm"></i></div>
+                            <span class="text-xs text-emerald-400/70 font-bold uppercase">Produtos (FOB R$)</span>
+                        </div>
+                        <p id="dash_total_produtos" class="text-2xl font-black text-emerald-400 mb-1">R$ 0,00</p>
+                        <p class="text-[11px] text-slate-400">Média: <span id="media_produtos" class="text-emerald-400 font-bold">R$ 0,00</span></p>
+                        <p class="text-[11px] text-emerald-400 font-bold mt-1">100% do FOB</p>
+                    </div>
+                    <div class="border-t border-emerald-500/20 p-3 max-h-[180px] overflow-y-auto scrollbar-thin space-y-1.5" id="lista_produtos"><p class="text-slate-500 text-center py-3 text-xs">Nenhum lançamento</p></div>
+                </div>
+
+                <!-- Logística -->
+                <div class="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/30 rounded-2xl overflow-hidden">
+                    <div class="p-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center"><i class="fas fa-truck text-blue-400 text-sm"></i></div>
+                            <span class="text-xs text-blue-400/70 font-bold uppercase">Logística</span>
+                        </div>
+                        <p id="dash_total_logistica" class="text-2xl font-black text-blue-400 mb-1">R$ 0,00</p>
+                        <p class="text-[11px] text-slate-400">Média: <span id="media_logistica" class="text-blue-400 font-bold">R$ 0,00</span></p>
+                        <p id="pct_fob_logistica" class="text-[11px] text-blue-400 font-bold mt-1">0% do FOB</p>
+                        <div class="space-y-1 text-[11px] mt-2">
+                            <div class="flex justify-between text-slate-400"><span>Frete</span><span id="dash_det_frete" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_frete" class="text-blue-400 font-semibold">0%</span></div>
+                            <div class="flex justify-between text-slate-400"><span>Seguro</span><span id="dash_det_seguro" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_seguro" class="text-blue-400 font-semibold">0%</span></div>
+                            <div class="flex justify-between text-slate-400"><span>Acréscimos</span><span id="dash_det_acrescimos" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_acrescimos" class="text-blue-400 font-semibold">0%</span></div>
+                        </div>
+                    </div>
+                    <div class="border-t border-blue-500/20 p-3 max-h-[180px] overflow-y-auto scrollbar-thin space-y-1.5" id="lista_logistica"><p class="text-slate-500 text-center py-3 text-xs">Nenhum lançamento</p></div>
+                </div>
+
+                <!-- Tributos -->
+                <div class="bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/30 rounded-2xl overflow-hidden">
+                    <div class="p-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center"><i class="fas fa-file-invoice-dollar text-purple-400 text-sm"></i></div>
+                            <span class="text-xs text-purple-400/70 font-bold uppercase">Tributos</span>
+                        </div>
+                        <p id="dash_total_tributos" class="text-2xl font-black text-purple-400 mb-1">R$ 0,00</p>
+                        <p class="text-[11px] text-slate-400">Média: <span id="media_tributos" class="text-purple-400 font-bold">R$ 0,00</span></p>
+                        <p id="pct_fob_tributos" class="text-[11px] text-purple-400 font-bold mt-1">0% do FOB</p>
+                        <div class="space-y-1 text-[11px] mt-2">
+                            <div class="flex justify-between text-slate-400"><span>Imp. Importação</span><span id="dash_det_ii" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_ii" class="text-purple-400 font-semibold">0%</span></div>
+                            <div class="flex justify-between text-slate-400"><span>IPI</span><span id="dash_det_ipi" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_ipi" class="text-purple-400 font-semibold">0%</span></div>
+                            <div class="flex justify-between text-slate-400"><span>PIS</span><span id="dash_det_pis" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_pis" class="text-purple-400 font-semibold">0%</span></div>
+                            <div class="flex justify-between text-slate-400"><span>COFINS</span><span id="dash_det_cofins" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_cofins" class="text-purple-400 font-semibold">0%</span></div>
+                            <div class="flex justify-between text-slate-400"><span>ICMS</span><span id="dash_det_icms" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_icms" class="text-purple-400 font-semibold">0%</span></div>
+                        </div>
+                    </div>
+                    <div class="border-t border-purple-500/20 p-3 max-h-[180px] overflow-y-auto scrollbar-thin space-y-1.5" id="lista_tributos"><p class="text-slate-500 text-center py-3 text-xs">Nenhum lançamento</p></div>
+                </div>
+
+                <!-- Despesas Aduaneiras -->
+                <div class="bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 border border-cyan-500/30 rounded-2xl overflow-hidden">
+                    <div class="p-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center"><i class="fas fa-anchor text-cyan-400 text-sm"></i></div>
+                            <span class="text-xs text-cyan-400/70 font-bold uppercase">Desp. Aduaneiras</span>
+                        </div>
+                        <p id="dash_total_desp_adu" class="text-2xl font-black text-cyan-400 mb-1">R$ 0,00</p>
+                        <p class="text-[11px] text-slate-400">Média: <span id="media_desp_adu" class="text-cyan-400 font-bold">R$ 0,00</span></p>
+                        <p id="pct_fob_desp_adu" class="text-[11px] text-cyan-400 font-bold mt-1">0% do FOB</p>
+                        <div class="space-y-1 text-[11px] mt-2">
+                            <div class="flex justify-between text-slate-400"><span>AFRMM</span><span id="dash_det_afrmm" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_afrmm" class="text-cyan-400 font-semibold">0%</span></div>
+                            <div class="flex justify-between text-slate-400"><span>Siscomex</span><span id="dash_det_siscomex" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_siscomex" class="text-cyan-400 font-semibold">0%</span></div>
+                            <div class="flex justify-between text-slate-400"><span>Outras DA</span><span id="dash_det_outras_da" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_outras_da" class="text-cyan-400 font-semibold">0%</span></div>
+                            <div class="flex justify-between text-slate-400"><span>Armazenagem</span><span id="dash_det_armazenagem" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_armazenagem" class="text-cyan-400 font-semibold">0%</span></div>
+                            <div class="flex justify-between text-slate-400"><span>Desconsolidação</span><span id="dash_det_desconsolidacao" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_desconsolidacao" class="text-cyan-400 font-semibold">0%</span></div>
+                            <div class="flex justify-between text-slate-400"><span>Transp. Interno</span><span id="dash_det_transp_interno" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_transp_interno" class="text-cyan-400 font-semibold">0%</span></div>
+                            <div class="flex justify-between text-slate-400"><span>Liberação</span><span id="dash_det_liberacao" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_liberacao" class="text-cyan-400 font-semibold">0%</span></div>
+                        </div>
+                    </div>
+                    <div class="border-t border-cyan-500/20 p-3 max-h-[180px] overflow-y-auto scrollbar-thin space-y-1.5" id="lista_desp_adu"><p class="text-slate-500 text-center py-3 text-xs">Nenhum lançamento</p></div>
+                </div>
+
+                <!-- Despachante -->
+                <div class="bg-gradient-to-br from-orange-500/20 to-orange-600/10 border border-orange-500/30 rounded-2xl overflow-hidden">
+                    <div class="p-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-8 h-8 bg-orange-500/20 rounded-lg flex items-center justify-center"><i class="fas fa-user-tie text-orange-400 text-sm"></i></div>
+                            <span class="text-xs text-orange-400/70 font-bold uppercase">Despachante</span>
+                        </div>
+                        <p id="dash_total_despachante" class="text-2xl font-black text-orange-400 mb-1">R$ 0,00</p>
+                        <p class="text-[11px] text-slate-400">Média: <span id="media_despachante" class="text-orange-400 font-bold">R$ 0,00</span></p>
+                        <p id="pct_fob_despachante" class="text-[11px] text-orange-400 font-bold mt-1">0% do FOB</p>
+                        <div class="space-y-1 text-[11px] mt-2">
+                            <div class="flex justify-between text-slate-400"><span>Honorários SDA</span><span id="dash_det_hon_sda" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_hon_sda" class="text-orange-400 font-semibold">0%</span></div>
+                            <div class="flex justify-between text-slate-400"><span>Prest. Serviços</span><span id="dash_det_prest_serv" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_prest_serv" class="text-orange-400 font-semibold">0%</span></div>
+                            <div class="flex justify-between text-slate-400"><span>Desp. Diversas</span><span id="dash_det_desp_div" class="text-slate-300 font-semibold">R$ 0,00</span><span id="pct_det_desp_div" class="text-orange-400 font-semibold">0%</span></div>
+                        </div>
+                    </div>
+                    <div class="border-t border-orange-500/20 p-3 max-h-[180px] overflow-y-auto scrollbar-thin space-y-1.5" id="lista_despachante"><p class="text-slate-500 text-center py-3 text-xs">Nenhum lançamento</p></div>
+                </div>
+
+                <!-- Total Geral -->
+                <div class="bg-gradient-to-br from-pink-500/20 to-pink-600/10 border border-pink-500/30 rounded-2xl overflow-hidden">
+                    <div class="p-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-8 h-8 bg-pink-500/20 rounded-lg flex items-center justify-center"><i class="fas fa-wallet text-pink-400 text-sm"></i></div>
+                            <span class="text-xs text-pink-400/70 font-bold uppercase">Total Geral</span>
+                        </div>
+                        <p id="dash_total_geral" class="text-3xl font-black text-pink-400 mb-1">R$ 0,00</p>
+                        <p id="pct_fob_total" class="text-[11px] text-pink-400 font-bold mt-1">0% do FOB</p>
+                    </div>
+                    <!-- Barra de distribuição percentual -->
+                    <div class="border-t border-pink-500/20 p-4">
+                        <h4 class="text-[10px] font-bold text-slate-400 uppercase mb-2"><i class="fas fa-chart-bar mr-1"></i>Distribuição Percentual</h4>
+                        <div id="dash_barra_composicao" class="flex rounded-lg overflow-hidden h-6 mb-3">
+                            <div class="bg-emerald-500 h-full" style="width:20%"></div>
+                            <div class="bg-blue-500 h-full" style="width:20%"></div>
+                            <div class="bg-purple-500 h-full" style="width:20%"></div>
+                            <div class="bg-cyan-500 h-full" style="width:20%"></div>
+                            <div class="bg-orange-500 h-full" style="width:20%"></div>
+                        </div>
+                        <div class="grid grid-cols-5 gap-1 text-center">
+                            <div><div class="w-2.5 h-2.5 bg-emerald-500 rounded-full mx-auto mb-0.5"></div><span class="text-[9px] text-slate-400">Produtos</span><p id="dash_pct_produtos" class="text-[11px] font-bold text-emerald-400">0%</p></div>
+                            <div><div class="w-2.5 h-2.5 bg-blue-500 rounded-full mx-auto mb-0.5"></div><span class="text-[9px] text-slate-400">Logística</span><p id="dash_pct_logistica" class="text-[11px] font-bold text-blue-400">0%</p></div>
+                            <div><div class="w-2.5 h-2.5 bg-purple-500 rounded-full mx-auto mb-0.5"></div><span class="text-[9px] text-slate-400">Tributos</span><p id="dash_pct_tributos" class="text-[11px] font-bold text-purple-400">0%</p></div>
+                            <div><div class="w-2.5 h-2.5 bg-cyan-500 rounded-full mx-auto mb-0.5"></div><span class="text-[9px] text-slate-400">Desp. Aduan.</span><p id="dash_pct_desp_adu" class="text-[11px] font-bold text-cyan-400">0%</p></div>
+                            <div><div class="w-2.5 h-2.5 bg-orange-500 rounded-full mx-auto mb-0.5"></div><span class="text-[9px] text-slate-400">Despachante</span><p id="dash_pct_despachante" class="text-[11px] font-bold text-orange-400">0%</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cards Fator e CIF/VA Geral -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="bg-gradient-to-r from-amber-900/30 to-yellow-900/30 border-2 border-amber-500/30 rounded-xl p-4 text-center">
+                    <span class="text-xs font-bold text-amber-400 uppercase">Fator Médio (Total ÷ Produtos)</span>
+                    <p id="dash_fator_medio" class="text-2xl font-black text-amber-400 mt-1">0.000</p>
+                </div>
+                <div class="bg-gradient-to-r from-emerald-900/30 to-teal-900/30 border-2 border-emerald-500/30 rounded-xl p-4 text-center">
+                    <span class="text-xs font-bold text-emerald-400 uppercase">CIF Total</span>
+                    <p id="dash_cif_total" class="text-2xl font-black text-emerald-400 mt-1">R$ 0,00</p>
+                </div>
+                <div class="bg-gradient-to-r from-teal-900/30 to-cyan-900/30 border-2 border-teal-500/30 rounded-xl p-4 text-center">
+                    <span class="text-xs font-bold text-teal-400 uppercase">Valor Aduaneiro Total</span>
+                    <p id="dash_va_total" class="text-2xl font-black text-teal-400 mt-1">R$ 0,00</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Cards de Tempo Médio -->
+        <section class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+            <div class="bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 border border-indigo-500/30 rounded-2xl p-4 card-overflow">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fas fa-clock text-indigo-400 text-sm"></i></div>
+                    <span class="text-[10px] text-indigo-400/70 font-medium truncate">TEMPO MÉDIO EMB → CHEG</span>
+                </div>
+                <div class="value-container"><p id="tempo_embarque_chegada" class="text-xl md:text-2xl font-black text-indigo-400 value-truncate">0 dias</p></div>
+            </div>
+            <div class="bg-gradient-to-br from-teal-500/20 to-teal-600/10 border border-teal-500/30 rounded-2xl p-4 card-overflow">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="w-8 h-8 bg-teal-500/20 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fas fa-hourglass-half text-teal-400 text-sm"></i></div>
+                    <span class="text-[10px] text-teal-400/70 font-medium truncate">TEMPO MÉDIO CHEG → DESEMB</span>
+                </div>
+                <div class="value-container"><p id="tempo_chegada_desembaraco" class="text-xl md:text-2xl font-black text-teal-400 value-truncate">0 dias</p></div>
+            </div>
+            <div class="bg-gradient-to-br from-violet-500/20 to-violet-600/10 border border-violet-500/30 rounded-2xl p-4 card-overflow">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="w-8 h-8 bg-violet-500/20 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fas fa-calendar-check text-violet-400 text-sm"></i></div>
+                    <span class="text-[10px] text-violet-400/70 font-medium truncate">TEMPO MÉDIO EMB → DESEMB</span>
+                </div>
+                <div class="value-container"><p id="tempo_embarque_desembaraco" class="text-xl md:text-2xl font-black text-violet-400 value-truncate">0 dias</p></div>
+            </div>
+        </section>
+
+        <!-- Lista de Lançamentos -->
+        <section class="bg-slate-800/60 border border-slate-700 rounded-2xl overflow-hidden">
+            <div class="px-4 py-4 border-b border-slate-700">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-indigo-500/20 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fas fa-list text-indigo-400"></i></div>
+                    <div>
+                        <h2 class="text-xl font-black text-white">Lançamentos</h2>
+                        <p class="text-xs text-slate-400" id="count_lancamentos">0 lançamentos registrados</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 max-h-[500px] overflow-y-auto scrollbar-thin" id="lista_lancamentos">
+                <div class="text-center py-12">
+                    <div class="w-20 h-20 bg-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-4"><i class="fas fa-ship text-slate-500 text-4xl"></i></div>
+                    <p class="text-slate-400 text-lg mb-2">Nenhum lançamento ainda</p>
+                    <p class="text-slate-500 text-sm">Clique em "Novo Lançamento" para começar</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal de Lançamento -->
+    <div id="modal" class="fixed inset-0 bg-black/70 modal-overlay z-50 hidden overflow-y-auto">
+        <div class="min-h-screen px-4 py-6 flex items-start justify-center">
+            <div class="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden animate-slide-in my-4">
+                <div class="bg-gradient-to-r from-indigo-600/20 to-purple-600/20 px-6 py-4 border-b border-slate-700 flex justify-between items-center sticky top-0 bg-slate-800 z-10">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-indigo-500/20 rounded-lg flex items-center justify-center"><i class="fas fa-plus-circle text-indigo-400"></i></div>
+                        <div>
+                            <h2 class="text-xl font-black text-white" id="modal_title">Novo Lançamento</h2>
+                            <p class="text-xs text-slate-400" id="modal_subtitle">Preencha os dados do container</p>
+                        </div>
+                    </div>
+                    <button onclick="closeModal()" class="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-lg flex items-center justify-center transition-colors"><i class="fas fa-times text-slate-300"></i></button>
+                </div>
+                <div class="p-6 overflow-y-auto max-h-[calc(95vh-160px)] scrollbar-thin">
+                    <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+                        <button onclick="switchTab('dados')" class="tab-btn active px-4 py-2 rounded-lg text-sm font-medium transition-all flex-shrink-0" data-tab="dados"><i class="fas fa-clipboard-list mr-2"></i>Dados</button>
+                        <button onclick="switchTab('valores')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all flex-shrink-0" data-tab="valores"><i class="fas fa-dollar-sign mr-2"></i>Valores</button>
+                        <button onclick="switchTab('tributos')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all flex-shrink-0" data-tab="tributos"><i class="fas fa-calculator mr-2"></i>Tributos</button>
+                        <button onclick="switchTab('resumo')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all flex-shrink-0" data-tab="resumo"><i class="fas fa-chart-bar mr-2"></i>Resumo</button>
+                    </div>
+
+                    <!-- Dados -->
+                    <div id="tab-dados" class="tab-content">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Tipo de Container *</label><select id="tipo_container" class="w-full input-dark rounded-lg p-3 text-sm"><option value="">Selecione...</option><option value="FCL">FCL</option><option value="LCL">LCL</option></select></div>
+                            <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Data de Desembaraço</label><input type="date" id="data_desembaraco" class="w-full input-dark rounded-lg p-3 text-sm"></div>
+                            <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Ref. Montreal</label><input type="text" id="ref_montreal" class="w-full input-dark rounded-lg p-3 text-sm" placeholder="Referência"></div>
+                            <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Data de Embarque</label><input type="date" id="data_embarque" class="w-full input-dark rounded-lg p-3 text-sm"></div>
+                            <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Data Chegada</label><input type="date" id="data_chegada" class="w-full input-dark rounded-lg p-3 text-sm"></div>
+                            <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Data do Registro</label><input type="date" id="data_registro" class="w-full input-dark rounded-lg p-3 text-sm"></div>
+                            <div class="space-y-2"><label class="block text-xs font-semibold label-dark">DI</label><input type="text" id="di" class="w-full input-dark rounded-lg p-3 text-sm" placeholder="Número da DI"></div>
+                            <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Incoterm</label><select id="incoterm" class="w-full input-dark rounded-lg p-3 text-sm"><option value="">Selecione...</option><option value="FOB">FOB</option><option value="CIF">CIF</option><option value="EXW">EXW</option><option value="FCA">FCA</option><option value="CPT">CPT</option></select></div>
+                            <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Procedência</label><input type="text" id="procedencia" class="w-full input-dark rounded-lg p-3 text-sm" placeholder="País de origem"></div>
+                            <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Navio</label><input type="text" id="navio" class="w-full input-dark rounded-lg p-3 text-sm" placeholder="Nome do navio"></div>
+                            <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Armador</label><input type="text" id="armador" class="w-full input-dark rounded-lg p-3 text-sm" placeholder="Companhia marítima"></div>
+                            <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Tipo de Carga</label><input type="text" id="tipo_carga" class="w-full input-dark rounded-lg p-3 text-sm" placeholder="Tipo de carga"></div>
+                            <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Local de Embarque</label><input type="text" id="local_embarque" class="w-full input-dark rounded-lg p-3 text-sm" placeholder="Porto de origem"></div>
+                            <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Local de Nacionalização</label><input type="text" id="local_nacionalizacao" class="w-full input-dark rounded-lg p-3 text-sm" placeholder="Porto de destino"></div>
+                            <div class="sm:col-span-2 space-y-2"><label class="block text-xs font-semibold label-dark">Invoice(s)</label><textarea id="invoices" rows="2" class="w-full input-dark rounded-lg p-3 text-sm" placeholder="Número(s) da(s) invoice(s)"></textarea></div>
+                            <div class="sm:col-span-2 space-y-2"><label class="block text-xs font-semibold label-dark">Exportador(es)</label><textarea id="exportadores" rows="2" class="w-full input-dark rounded-lg p-3 text-sm" placeholder="Nome(s) do(s) exportador(es)"></textarea></div>
+                        </div>
+                    </div>
+
+                    <!-- Valores -->
+                    <div id="tab-valores" class="tab-content hidden">
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Câmbio (R$/USD) *</label><input type="text" inputmode="decimal" id="cambio" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="Ex: 5,6750"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">FOB (USD) *</label><input type="text" inputmode="decimal" id="fob_usd" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="Ex: 95.000,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">FOB (R$)</label><div id="fob_real" class="w-full bg-slate-900/50 border border-slate-600 rounded-lg p-3 text-sm text-right font-bold text-emerald-400">R$ 0,00</div></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">CIF</label><div id="cif" class="w-full bg-slate-900/50 border border-slate-600 rounded-lg p-3 text-sm text-right font-bold text-emerald-400">R$ 0,00</div></div>
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Frete (R$)</label><input type="text" inputmode="decimal" id="frete" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Seguro (R$)</label><input type="text" inputmode="decimal" id="seguro" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Acréscimos (R$)</label><input type="text" inputmode="decimal" id="acrescimos" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Capatazia (R$)</label><input type="text" inputmode="decimal" id="capatazia" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                            </div>
+                            <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Valor Aduaneiro</label><div id="valor_aduaneiro" class="w-full bg-gradient-to-r from-emerald-900/50 to-teal-900/50 border-2 border-emerald-500/50 rounded-lg p-4 text-lg text-right font-black text-emerald-400">R$ 0,00</div></div>
+                        </div>
+                    </div>
+
+                    <!-- Tributos e Despesas -->
+                    <div id="tab-tributos" class="tab-content hidden">
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Imp. Importação (R$)</label><input type="text" inputmode="decimal" id="ii" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">IPI (R$)</label><input type="text" inputmode="decimal" id="ipi" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">PIS (R$)</label><input type="text" inputmode="decimal" id="pis" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">COFINS (R$)</label><input type="text" inputmode="decimal" id="cofins" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">ICMS (R$)</label><input type="text" inputmode="decimal" id="icms" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Multa (R$)</label><input type="text" inputmode="decimal" id="multa" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">AFRMM (R$)</label><input type="text" inputmode="decimal" id="afrmm" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Siscomex (R$)</label><input type="text" inputmode="decimal" id="siscomex" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Armazenagem (R$)</label><input type="text" inputmode="decimal" id="armazenagem" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Desconsolidação (R$)</label><input type="text" inputmode="decimal" id="desconsolidacao" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Transporte Interno (R$)</label><input type="text" inputmode="decimal" id="transp_interno" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Liberação (R$)</label><input type="text" inputmode="decimal" id="liberacao" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Honorários SDA (R$)</label><input type="text" inputmode="decimal" id="hon_sda" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Prestação Serviços (R$)</label><input type="text" inputmode="decimal" id="prest_serv" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Despesas Diversas (R$)</label><input type="text" inputmode="decimal" id="desp_div" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                                <div class="space-y-2"><label class="block text-xs font-semibold label-dark">Outras Desp. Aduaneiras (R$)</label><input type="text" inputmode="decimal" id="outras_da" class="w-full input-dark rounded-lg p-3 text-sm text-right campo-num" placeholder="0,00"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resumo do Container -->
+                    <div id="tab-resumo" class="tab-content hidden">
+                        <div class="space-y-4">
+                            <!-- Câmbio em amarelo destaque -->
+                            <div class="bg-gradient-to-br from-yellow-500/20 to-amber-600/10 border-2 border-yellow-500/50 rounded-xl p-4">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <i class="fas fa-dollar-sign text-yellow-400 text-lg"></i>
+                                    <span class="text-xs text-yellow-400/70 font-bold uppercase">Câmbio Utilizado</span>
+                                </div>
+                                <p id="modal_cambio_destaque" class="text-3xl font-black text-yellow-400">R$ 0,0000</p>
+                            </div>
+
+                            <!-- Cards de Resumo por Categoria -->
+                            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider"><i class="fas fa-layer-group mr-2"></i>Composição de Custos deste Container</h3>
+                            <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                <div class="bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border border-emerald-500/30 rounded-xl p-4">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <div class="w-7 h-7 bg-emerald-500/20 rounded-lg flex items-center justify-center"><i class="fas fa-box text-emerald-400 text-xs"></i></div>
+                                        <span class="text-[10px] text-emerald-400/70 font-bold uppercase">Produtos (FOB R$)</span>
+                                    </div>
+                                    <p id="modal_res_produtos" class="text-lg font-black text-emerald-400">R$ 0,00</p>
+                                    <p id="modal_pct_produtos" class="text-[11px] text-emerald-400 font-bold mt-1">100% do FOB</p>
+                                </div>
+                                <div class="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/30 rounded-xl p-4">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <div class="w-7 h-7 bg-blue-500/20 rounded-lg flex items-center justify-center"><i class="fas fa-truck text-blue-400 text-xs"></i></div>
+                                        <span class="text-[10px] text-blue-400/70 font-bold uppercase">Logística</span>
+                                    </div>
+                                    <p id="modal_res_logistica" class="text-lg font-black text-blue-400">R$ 0,00</p>
+                                    <p id="modal_pct_logistica" class="text-[11px] text-blue-400 font-bold mt-1">0% do FOB</p>
+                                    <div class="mt-2 space-y-1 text-[11px]">
+                                        <div class="flex justify-between text-slate-400"><span>Frete</span><span id="modal_det_frete" class="text-slate-300">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-slate-400"><span>Seguro</span><span id="modal_det_seguro" class="text-slate-300">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-slate-400"><span>Acréscimos</span><span id="modal_det_acrescimos" class="text-slate-300">R$ 0,00</span></div>
+                                    </div>
+                                </div>
+                                <div class="bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-500/30 rounded-xl p-4">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <div class="w-7 h-7 bg-purple-500/20 rounded-lg flex items-center justify-center"><i class="fas fa-file-invoice-dollar text-purple-400 text-xs"></i></div>
+                                        <span class="text-[10px] text-purple-400/70 font-bold uppercase">Tributos</span>
+                                    </div>
+                                    <p id="modal_res_tributos" class="text-lg font-black text-purple-400">R$ 0,00</p>
+                                    <p id="modal_pct_tributos" class="text-[11px] text-purple-400 font-bold mt-1">0% do FOB</p>
+                                    <div class="mt-2 space-y-1 text-[11px]">
+                                        <div class="flex justify-between text-slate-400"><span>II</span><span id="modal_det_ii" class="text-slate-300">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-slate-400"><span>IPI</span><span id="modal_det_ipi" class="text-slate-300">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-slate-400"><span>PIS</span><span id="modal_det_pis" class="text-slate-300">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-slate-400"><span>COFINS</span><span id="modal_det_cofins" class="text-slate-300">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-slate-400"><span>ICMS</span><span id="modal_det_icms" class="text-slate-300">R$ 0,00</span></div>
+                                    </div>
+                                </div>
+                                <div class="bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 border border-cyan-500/30 rounded-xl p-4">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <div class="w-7 h-7 bg-cyan-500/20 rounded-lg flex items-center justify-center"><i class="fas fa-anchor text-cyan-400 text-xs"></i></div>
+                                        <span class="text-[10px] text-cyan-400/70 font-bold uppercase">Desp. Aduaneiras</span>
+                                    </div>
+                                    <p id="modal_res_desp_adu" class="text-lg font-black text-cyan-400">R$ 0,00</p>
+                                    <p id="modal_pct_desp_adu" class="text-[11px] text-cyan-400 font-bold mt-1">0% do FOB</p>
+                                    <div class="mt-2 space-y-1 text-[11px]">
+                                        <div class="flex justify-between text-slate-400"><span>AFRMM</span><span id="modal_det_afrmm" class="text-slate-300">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-slate-400"><span>Siscomex</span><span id="modal_det_siscomex" class="text-slate-300">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-slate-400"><span>Outras DA</span><span id="modal_det_outras_da" class="text-slate-300">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-slate-400"><span>Armazenagem</span><span id="modal_det_armazenagem" class="text-slate-300">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-slate-400"><span>Desconsolidação</span><span id="modal_det_desconsolidacao" class="text-slate-300">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-slate-400"><span>Transp. Interno</span><span id="modal_det_transp_interno" class="text-slate-300">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-slate-400"><span>Liberação</span><span id="modal_det_liberacao" class="text-slate-300">R$ 0,00</span></div>
+                                    </div>
+                                </div>
+                                <div class="bg-gradient-to-br from-orange-500/20 to-orange-600/10 border border-orange-500/30 rounded-xl p-4">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <div class="w-7 h-7 bg-orange-500/20 rounded-lg flex items-center justify-center"><i class="fas fa-user-tie text-orange-400 text-xs"></i></div>
+                                        <span class="text-[10px] text-orange-400/70 font-bold uppercase">Despachante</span>
+                                    </div>
+                                    <p id="modal_res_despachante" class="text-lg font-black text-orange-400">R$ 0,00</p>
+                                    <p id="modal_pct_despachante" class="text-[11px] text-orange-400 font-bold mt-1">0% do FOB</p>
+                                    <div class="mt-2 space-y-1 text-[11px]">
+                                        <div class="flex justify-between text-slate-400"><span>Honorários SDA</span><span id="modal_det_hon_sda" class="text-slate-300">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-slate-400"><span>Prest. Serviços</span><span id="modal_det_prest_serv" class="text-slate-300">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-slate-400"><span>Desp. Diversas</span><span id="modal_det_desp_div" class="text-slate-300">R$ 0,00</span></div>
+                                    </div>
+                                </div>
+                                <div class="bg-gradient-to-br from-pink-500/20 to-pink-600/10 border border-pink-500/30 rounded-xl p-4">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <div class="w-7 h-7 bg-pink-500/20 rounded-lg flex items-center justify-center"><i class="fas fa-wallet text-pink-400 text-xs"></i></div>
+                                        <span class="text-[10px] text-pink-400/70 font-bold uppercase">Total Geral</span>
+                                    </div>
+                                    <p id="modal_res_total" class="text-2xl font-black text-pink-400">R$ 0,00</p>
+                                    <p id="modal_pct_total" class="text-[11px] text-pink-400 font-bold mt-1">0% do FOB</p>
+                                </div>
+                            </div>
+
+                            <!-- Barra visual de composição -->
+                            <div class="bg-slate-700/30 border border-slate-600 rounded-xl p-4">
+                                <h4 class="text-xs font-bold text-slate-400 uppercase mb-3"><i class="fas fa-chart-bar mr-1"></i>Distribuição Percentual</h4>
+                                <div id="modal_barra_composicao" class="flex rounded-lg overflow-hidden h-8 mb-3">
+                                    <div class="bg-emerald-500 h-full" style="width:20%"></div>
+                                    <div class="bg-blue-500 h-full" style="width:20%"></div>
+                                    <div class="bg-purple-500 h-full" style="width:20%"></div>
+                                    <div class="bg-cyan-500 h-full" style="width:20%"></div>
+                                    <div class="bg-orange-500 h-full" style="width:20%"></div>
+                                </div>
+                                <div class="grid grid-cols-5 gap-2 text-center">
+                                    <div><div class="w-3 h-3 bg-emerald-500 rounded-full mx-auto mb-1"></div><span class="text-[10px] text-slate-400">Produtos</span><p id="modal_barra_produtos" class="text-xs font-bold text-emerald-400">0%</p></div>
+                                    <div><div class="w-3 h-3 bg-blue-500 rounded-full mx-auto mb-1"></div><span class="text-[10px] text-slate-400">Logística</span><p id="modal_barra_logistica" class="text-xs font-bold text-blue-400">0%</p></div>
+                                    <div><div class="w-3 h-3 bg-purple-500 rounded-full mx-auto mb-1"></div><span class="text-[10px] text-slate-400">Tributos</span><p id="modal_barra_tributos" class="text-xs font-bold text-purple-400">0%</p></div>
+                                    <div><div class="w-3 h-3 bg-cyan-500 rounded-full mx-auto mb-1"></div><span class="text-[10px] text-slate-400">Desp. Aduan.</span><p id="modal_barra_desp_adu" class="text-xs font-bold text-cyan-400">0%</p></div>
+                                    <div><div class="w-3 h-3 bg-orange-500 rounded-full mx-auto mb-1"></div><span class="text-[10px] text-slate-400">Despachante</span><p id="modal_barra_despachante" class="text-xs font-bold text-orange-400">0%</p></div>
+                                </div>
+                            </div>
+
+                            <!-- Fator e CIF -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div class="bg-gradient-to-r from-amber-900/30 to-yellow-900/30 border-2 border-amber-500/30 rounded-xl p-4 text-center">
+                                    <span class="text-xs font-bold text-amber-400 uppercase">Fator (Total ÷ Produtos)</span>
+                                    <p id="modal_res_fator" class="text-2xl font-black text-amber-400 mt-1">0.000</p>
+                                </div>
+                                <div class="bg-gradient-to-r from-emerald-900/30 to-teal-900/30 border-2 border-emerald-500/30 rounded-xl p-4 text-center">
+                                    <span class="text-xs font-bold text-emerald-400 uppercase">CIF</span>
+                                    <p id="modal_res_cif" class="text-2xl font-black text-emerald-400 mt-1">R$ 0,00</p>
+                                </div>
+                                <div class="bg-gradient-to-r from-teal-900/30 to-cyan-900/30 border-2 border-teal-500/30 rounded-xl p-4 text-center">
+                                    <span class="text-xs font-bold text-teal-400 uppercase">Valor Aduaneiro</span>
+                                    <p id="modal_res_va" class="text-2xl font-black text-teal-400 mt-1">R$ 0,00</p>
+                                </div>
+                            </div>
+
+                            <!-- Multa separada -->
+                            <div id="modal_multa_box" class="bg-red-500/10 border border-red-500/30 rounded-xl p-3 hidden">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <i class="fas fa-exclamation-triangle text-red-400"></i>
+                                        <span class="text-sm font-bold text-red-400">Multa</span>
+                                    </div>
+                                    <span id="modal_det_multa" class="text-lg font-black text-red-400">R$ 0,00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Totais -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+                        <div class="bg-gradient-to-r from-pink-900/30 to-rose-900/30 border-2 border-pink-500/30 rounded-xl p-4">
+                            <span class="text-sm font-bold text-pink-400">TOTAL GERAL (R$)</span>
+                            <div id="total" class="text-2xl md:text-3xl font-black text-pink-400 text-right value-truncate">R$ 0,00</div>
+                        </div>
+                        <div class="bg-gradient-to-r from-amber-900/30 to-yellow-900/30 border-2 border-amber-500/30 rounded-xl p-4">
+                            <span class="text-sm font-bold text-amber-400">FATOR (TOTAL ÷ PRODUTOS)</span>
+                            <div id="fator" class="text-2xl md:text-3xl font-black text-amber-400 text-right value-truncate">0.000</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-6 py-4 border-t border-slate-700 bg-slate-800/90 flex flex-col sm:flex-row gap-3 justify-end sticky bottom-0">
+                    <button onclick="closeModal()" class="btn-secondary text-white font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2"><i class="fas fa-times"></i> Cancelar</button>
+                    <button onclick="salvarLancamento()" class="btn-success text-white font-bold py-3 px-8 rounded-xl flex items-center justify-center gap-2"><i class="fas fa-save"></i> <span id="btn_salvar_txt">Salvar Lançamento</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Config -->
+    <div id="modal_config" class="fixed inset-0 bg-black/70 modal-overlay z-50 hidden">
+        <div class="min-h-screen px-4 py-6 flex items-center justify-center">
+            <div class="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg animate-slide-in">
+                <div class="bg-gradient-to-r from-indigo-600/20 to-purple-600/20 px-6 py-4 border-b border-slate-700">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center"><i class="fab fa-google text-green-400"></i></div>
+                        <div><h2 class="text-xl font-black text-white">Configurar Google Sheets</h2><p class="text-xs text-slate-400">Conecte com sua planilha</p></div>
+                    </div>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div id="config-status-box" class="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                        <p class="text-sm"><i class="fas fa-info-circle mr-2"></i><strong>Status:</strong> <span id="config-status-text" class="text-yellow-400">Offline - Usando armazenamento local</span></p>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-xs font-semibold label-dark">URL da API do Google Sheets</label>
+                        <input type="text" id="sheets_url" class="w-full input-dark rounded-lg p-3 text-sm" placeholder="https://script.google.com/macros/s/.../exec">
+                        <p class="text-xs text-slate-500">Cole aqui a URL do Web App do Google Apps Script</p>
+                    </div>
+                    <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                        <p class="text-xs text-yellow-400"><i class="fas fa-exclamation-triangle mr-1"></i> <strong>Importante:</strong> Clique no botão <strong class="text-green-400">"?"</strong> azul para ver as instruções completas de como criar o Apps Script.</p>
+                    </div>
+                </div>
+                <div class="px-6 py-4 border-t border-slate-700 bg-slate-800/90 flex flex-col sm:flex-row gap-3 justify-end">
+                    <button onclick="closeModalConfig()" class="btn-secondary text-white font-bold py-2 px-4 rounded-xl"><i class="fas fa-times mr-2"></i>Fechar</button>
+                    <button onclick="testConnection()" class="btn-primary text-white font-bold py-2 px-4 rounded-xl"><i class="fas fa-plug mr-2"></i>Testar</button>
+                    <button onclick="saveConfig()" class="btn-success text-white font-bold py-2 px-4 rounded-xl"><i class="fas fa-save mr-2"></i>Salvar e Conectar</button>
+                </div>
+                <div class="px-6 py-3 border-t border-slate-700 bg-slate-800/50">
+                    <button onclick="toggleOfflineMode()" class="w-full text-xs text-slate-400 hover:text-red-400 py-2 transition-colors"><i class="fas fa-power-off mr-2"></i>Desconectar e Usar Modo Offline</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Instruções -->
+    <div id="modal_instrucoes" class="fixed inset-0 bg-black/70 modal-overlay z-50 hidden overflow-y-auto">
+        <div class="min-h-screen px-4 py-6 flex items-start justify-center">
+            <div class="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden animate-slide-in my-4">
+                <div class="bg-gradient-to-r from-blue-600/20 to-indigo-600/20 px-6 py-4 border-b border-slate-700 flex justify-between items-center sticky top-0 bg-slate-800 z-10">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center"><i class="fas fa-book text-blue-400"></i></div>
+                        <div><h2 class="text-xl font-black text-white">Como Configurar o Google Sheets</h2><p class="text-xs text-slate-400">Passo a passo completo</p></div>
+                    </div>
+                    <button onclick="closeModalInstrucoes()" class="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-lg flex items-center justify-center transition-colors"><i class="fas fa-times text-slate-300"></i></button>
+                </div>
+                <div class="p-6 overflow-y-auto max-h-[calc(95vh-100px)] scrollbar-thin space-y-6">
+                    <!-- Passo 1 -->
+                    <div class="flex gap-4">
+                        <div class="step-number text-white">1</div>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-white mb-2">Criar a Planilha no Google Sheets</h3>
+                            <p class="text-sm text-slate-400 mb-2">Acesse <a href="https://sheets.google.com" target="_blank" class="text-blue-400 hover:underline">sheets.google.com</a> e crie uma planilha em branco.</p>
+                            <div class="bg-green-500/10 border border-green-500/30 rounded-lg p-3"><p class="text-xs text-green-400"><i class="fas fa-check-circle mr-1"></i> Não precisa criar cabeçalhos. O código cria automaticamente!</p></div>
+                        </div>
+                    </div>
+                    <!-- Passo 2 -->
+                    <div class="flex gap-4">
+                        <div class="step-number text-white">2</div>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-white mb-2">Abrir o Editor de Scripts</h3>
+                            <p class="text-sm text-slate-400">Na planilha, clique em <strong class="text-white">Extensões</strong> → <strong class="text-white">Apps Script</strong></p>
+                        </div>
+                    </div>
+                    <!-- Passo 3 -->
+                    <div class="flex gap-4">
+                        <div class="step-number text-white">3</div>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-white mb-2">Colar o Código</h3>
+                            <ol class="text-sm text-slate-400 space-y-1 list-decimal list-inside mb-3">
+                                <li>Apague todo o código padrão (função myFunction)</li>
+                                <li>Clique no botão <strong class="text-green-400">"Copiar Código"</strong> abaixo</li>
+                                <li>Cole no editor do Apps Script</li>
+                                <li>Salve (Ctrl+S)</li>
+                            </ol>
+                            <div class="code-block" id="code-apps-script"></div>
+                            <button onclick="copyAppsScriptCode()" class="mt-3 btn-success text-white font-bold py-2 px-4 rounded-lg text-sm"><i class="fas fa-copy mr-2"></i>Copiar Código do Apps Script</button>
+                        </div>
+                    </div>
+                    <!-- Passo 4 -->
+                    <div class="flex gap-4">
+                        <div class="step-number text-white">4</div>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-white mb-2">Publicar como Web App</h3>
+                            <ol class="text-sm text-slate-400 space-y-1 list-decimal list-inside">
+                                <li>No Apps Script, clique em <strong class="text-white">Implantar</strong> → <strong class="text-white">Nova implantação</strong></li>
+                                <li>Clique na engrenagem ⚙️ e selecione <strong class="text-white">App da Web</strong></li>
+                                <li>Descrição: <strong class="text-white">Container API</strong></li>
+                                <li>Executar como: <strong class="text-white">Eu</strong></li>
+                                <li>Quem tem acesso: <strong class="text-white">Qualquer pessoa</strong></li>
+                                <li>Clique em <strong class="text-white">Implantar</strong></li>
+                                <li>Autorize: clique em <strong class="text-white">"Revisar permissões"</strong> → <strong class="text-white">"Avançado"</strong> → <strong class="text-white">"Ir para..."</strong> → <strong class="text-white">"Permitir"</strong></li>
+                            </ol>
+                        </div>
+                    </div>
+                    <!-- Passo 5 -->
+                    <div class="flex gap-4">
+                        <div class="step-number text-white">5</div>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-white mb-2">Copiar a URL e Conectar</h3>
+                            <ol class="text-sm text-slate-400 space-y-1 list-decimal list-inside">
+                                <li>Copie a <strong class="text-white">URL do Web App</strong> que aparece após implantable</li>
+                                <li>Volte para esta página e clique na <strong class="text-white">engrenagem</strong> ⚙️</li>
+                                <li>Cole a URL no campo</li>
+                                <li>Clique em <strong class="text-white">"Salvar e Conectar"</strong></li>
+                            </ol>
+                            <div class="bg-green-500/10 border border-green-500/30 rounded-lg p-3 mt-3">
+                                <p class="text-xs text-green-400"><i class="fas fa-check-circle mr-1"></i> A bolinha do status deve ficar <strong>verde</strong> (Online)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Cabeçalhos -->
+                    <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
+                        <h4 class="font-bold text-emerald-400 mb-3"><i class="fas fa-table mr-2"></i>Cabeçalhos da Planilha (Opcionais)</h4>
+                        <p class="text-sm text-slate-300 mb-3">O código cria automaticamente, mas se quiser copiar manualmente:</p>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3" id="headers-grid"></div>
+                        <button onclick="copyAllHeaders()" class="w-full btn-primary text-white font-bold py-2 px-4 rounded-xl"><i class="fas fa-copy mr-2"></i>Copiar Todos (Separados por Tab - Cole na célula A1)</button>
+                    </div>
+                    <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+                        <h4 class="font-bold text-blue-400 mb-2"><i class="fas fa-lightbulb mr-2"></i>Dicas</h4>
+                        <ul class="text-sm text-slate-300 space-y-1">
+                            <li>• <strong>Modo Offline:</strong> Sem Google Sheets, os dados ficam apenas no navegador</li>
+                            <li>• <strong>Sincronização:</strong> Todos com a mesma URL veem os mesmos dados</li>
+                            <li>• <strong>Atualizar Apps Script:</strong> Se mudar o código, clique em Implantar → Gerenciar implantações → edite e salve</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="px-6 py-4 border-t border-slate-700 bg-slate-800/90 flex justify-end">
+                    <button onclick="closeModalInstrucoes()" class="btn-primary text-white font-bold py-2 px-6 rounded-xl"><i class="fas fa-check mr-2"></i>Entendi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botões Flutuantes -->
+    <button onclick="openModalConfig()" class="fixed bottom-4 right-4 w-12 h-12 bg-slate-700 hover:bg-slate-600 rounded-full shadow-lg flex items-center justify-center transition-colors z-40" title="Configurações"><i class="fas fa-cog text-slate-300"></i></button>
+    <button onclick="openModalInstrucoes()" class="fixed bottom-20 right-4 w-12 h-12 bg-blue-600 hover:bg-blue-500 rounded-full shadow-lg flex items-center justify-center transition-colors z-40" title="Como Configurar"><i class="fas fa-question text-white"></i></button>
+
+    <script>
+    // ==================== CONFIGURAÇÃO ====================
+    const DEFAULT_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwPPEBy8ENPAKT4ZYKdkFf5CYQDzVQxZu9VJuDM-4FLS3jBsFeEJ7UOxFjHfkkzR3qS/exec';
+
+    let GOOGLE_SHEETS_URL = DEFAULT_SHEETS_URL;
+    const STORAGE_KEY = 'container_lancamentos';
+    const CONFIG_KEY = 'container_config_v2';
+    let isOnline = false;
+    let editingIndex = null;
+    let chartCustos = null;
+    let chartComposicao = null;
+    let memoryCache = [];
+    let localStorageAvailable = false;
+
+    const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+
+    const HEADERS = [
+        'tipo_container','data_desembaraco','ref_montreal','invoices','data_embarque','exportadores',
+        'data_chegada','procedencia','navio','tipo_carga','armador','local_embarque','local_nacionalizacao',
+        'di','incoterm','data_registro','cambio','fob_usd','frete','seguro','acrescimos','capatazia',
+        'ii','ipi','pis','cofins','icms','multa','afrmm','siscomex','outras_da','armazenagem',
+        'desconsolidacao','transp_interno','liberacao','hon_sda','prest_serv','desp_div','timestamp'
+    ];
+
+    const NUMERIC_FIELDS = ['cambio','fob_usd','frete','seguro','acrescimos','capatazia',
+        'ii','ipi','pis','cofins','icms','multa','afrmm','siscomex','outras_da','armazenagem',
+        'desconsolidacao','transp_interno','liberacao','hon_sda','prest_serv','desp_div'];
+
+    const DATE_FIELDS = ['data_desembaraco','data_embarque','data_chegada','data_registro'];
+
+    const FIELD_IDS = HEADERS.filter(h => h !== 'timestamp');
+
+    // ==================== TESTAR localStorage ====================
+    function checkLocalStorage() {
+        try {
+            localStorage.setItem('_test_', '1');
+            localStorage.removeItem('_test_');
+            localStorageAvailable = true;
+        } catch(e) {
+            localStorageAvailable = false;
+        }
+    }
+
+    // ==================== PARSE NÚMERO BRASILEIRO ====================
+    function parseNum(val) {
+        if (val === null || val === undefined || val === '') return 0;
+        if (typeof val === 'number') return val;
+        let s = String(val).trim();
+        if (s.includes(',') && s.includes('.')) {
+            const lastComma = s.lastIndexOf(',');
+            const lastDot = s.lastIndexOf('.');
+            if (lastComma > lastDot) {
+                s = s.replace(/\./g, '').replace(',', '.');
+            } else {
+                s = s.replace(/,/g, '');
+            }
+        } else if (s.includes(',')) {
+            s = s.replace(',', '.');
+        }
+        s = s.replace(/[^\d.\-]/g, '');
+        const num = parseFloat(s);
+        return isNaN(num) ? 0 : num;
+    }
+
+    // ==================== PARSE/FORMAT DATA ====================
+    function parseDate(val) {
+        if (!val || val === '' || val === 'undefined' || val === 'null' || val === '0') return '';
+        let s = String(val).trim();
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+        if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) {
+            const parts = s.split('/');
+            return `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+        if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.substring(0, 10);
+        try {
+            const d = new Date(s);
+            if (!isNaN(d.getTime()) && d.getFullYear() > 1900) {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            }
+        } catch(e) {}
+        return '';
+    }
+
+    function formatDateBR(val) {
+        const iso = parseDate(val);
+        if (!iso) return '';
+        const parts = iso.split('-');
+        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        return '';
+    }
+
+    function makeDate(val) {
+        const iso = parseDate(val);
+        if (!iso) return null;
+        const d = new Date(iso + 'T00:00:00');
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    function getBestDate(l) {
+        let d = makeDate(l.data_registro);
+        if (d) return d;
+        d = makeDate(l.data_desembaraco);
+        if (d) return d;
+        d = makeDate(l.data_chegada);
+        if (d) return d;
+        d = makeDate(l.data_embarque);
+        if (d) return d;
+        if (l.timestamp) {
+            d = makeDate(l.timestamp);
+            if (d) return d;
+        }
+        return null;
+    }
+
+    // ==================== APPS SCRIPT CODE ====================
+    const APPS_SCRIPT_CODE = `function doGet(e) { return handleRequest(e); }
+function doPost(e) { return handleRequest(e); }
+function handleRequest(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Lancamentos') || ss.insertSheet('Lancamentos');
+  var headers = ['tipo_container','data_desembaraco','ref_montreal','invoices','data_embarque','exportadores','data_chegada','procedencia','navio','tipo_carga','armador','local_embarque','local_nacionalizacao','di','incoterm','data_registro','cambio','fob_usd','frete','seguro','acrescimos','capatazia','ii','ipi','pis','cofins','icms','multa','afrmm','siscomex','outras_da','armazenagem','desconsolidacao','transp_interno','liberacao','hon_sda','prest_serv','desp_div','timestamp'];
+  var numericHeaders = ['cambio','fob_usd','frete','seguro','acrescimos','capatazia','ii','ipi','pis','cofins','icms','multa','afrmm','siscomex','outras_da','armazenagem','desconsolidacao','transp_interno','liberacao','hon_sda','prest_serv','desp_div'];
+  if (sheet.getLastRow() === 0) { sheet.getRange(1, 1, 1, headers.length).setValues([headers]); sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold'); }
+  var action = ''; var postData = null;
+  try { if (e.parameter && e.parameter.action) action = e.parameter.action; if (e.postData && e.postData.contents) { postData = JSON.parse(e.postData.contents); if (postData.action) action = postData.action; } } catch(err) { return ContentService.createTextOutput(JSON.stringify({error: err.message})).setMimeType(ContentService.MimeType.JSON); }
+  if (action === 'getAll') { var data = sheet.getDataRange().getValues(); var result = []; for (var i = 1; i < data.length; i++) { var row = {}; for (var j = 0; j < headers.length; j++) { var val = data[i][j]; var headerName = headers[j]; if (val instanceof Date) { var dd = ('0' + val.getDate()).slice(-2); var mm = ('0' + (val.getMonth() + 1)).slice(-2); var yyyy = val.getFullYear(); row[headerName] = dd + '/' + mm + '/' + yyyy; } else if (numericHeaders.indexOf(headerName) !== -1) { var num = parseFloat(val); row[headerName] = isNaN(num) ? 0 : num; } else { row[headerName] = val !== undefined && val !== null ? String(val) : ''; } } result.push(row); } return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON); }
+  if (action === 'saveAll' && postData) { var allData = postData.data; if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).clear(); if (allData && allData.length > 0) { var rows = allData.map(function(item) { return headers.map(function(h) { var v = item[h]; if (v === undefined || v === null) return ''; return v; }); }); sheet.getRange(2, 1, rows.length, headers.length).setValues(rows); } return ContentService.createTextOutput(JSON.stringify({success: true, count: allData ? allData.length : 0})).setMimeType(ContentService.MimeType.JSON); }
+  if (action === 'ping') return ContentService.createTextOutput(JSON.stringify({success: true, message: 'Conectado!'})).setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify({success: true})).setMimeType(ContentService.MimeType.JSON);
+}`;
+
+    // ==================== TOAST ====================
+    function showToast(message, type = 'info') {
+        const existing = document.querySelector('.toast');
+        if (existing) existing.remove();
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} mr-2"></i>${message}`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    }
+
+    // ==================== STATUS ====================
+    function setStatus(status) {
+        const dot = document.getElementById('status-dot');
+        const text = document.getElementById('status-text');
+        const spinner = document.getElementById('loading-spinner');
+        dot.className = 'status-dot';
+        spinner.classList.add('hidden');
+        if (status === 'online') { dot.classList.add('status-online'); text.textContent = 'Online'; isOnline = true; }
+        else if (status === 'syncing') { dot.classList.add('status-syncing'); text.textContent = 'Sincronizando...'; spinner.classList.remove('hidden'); }
+        else { dot.classList.add('status-offline'); text.textContent = 'Offline'; isOnline = false; }
+    }
+
+    // ==================== STORAGE ====================
+    function getData() { return [...memoryCache]; }
+
+    function saveData(arr) {
+        memoryCache = [...arr];
+        if (localStorageAvailable) {
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); } catch(e) {}
+        }
+    }
+
+    function loadFromLocalStorage() {
+        if (!localStorageAvailable) return;
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    memoryCache = parsed;
+                }
+            }
+        } catch(e) {}
+    }
+
+    // ==================== CONFIG ====================
+    function loadConfig() {
+        let savedUrl = '';
+        if (localStorageAvailable) {
+            try { savedUrl = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}').url || ''; } catch(e) {}
+        }
+        GOOGLE_SHEETS_URL = savedUrl || DEFAULT_SHEETS_URL;
+        const urlInput = document.getElementById('sheets_url');
+        if (urlInput) urlInput.value = GOOGLE_SHEETS_URL;
+        setStatus(GOOGLE_SHEETS_URL ? 'online' : 'offline');
+    }
+
+    function saveConfig() {
+        const url = document.getElementById('sheets_url').value.trim();
+        if (!url) { showToast('Insira uma URL válida!', 'error'); return; }
+        GOOGLE_SHEETS_URL = url;
+        if (localStorageAvailable) {
+            try { localStorage.setItem(CONFIG_KEY, JSON.stringify({ url: url })); } catch(e) {}
+        }
+        setStatus('online');
+        closeModalConfig();
+        showToast('Configuração salva! Buscando dados...', 'success');
+        syncFromSheets();
+    }
+
+    function toggleOfflineMode() {
+        GOOGLE_SHEETS_URL = '';
+        if (localStorageAvailable) {
+            try { localStorage.setItem(CONFIG_KEY, JSON.stringify({ url: '' })); } catch(e) {}
+        }
+        document.getElementById('sheets_url').value = '';
+        setStatus('offline');
+        closeModalConfig();
+        showToast('Modo offline ativado.', 'info');
+    }
+
+    async function testConnection() {
+        const url = document.getElementById('sheets_url').value.trim();
+        if (!url) { showToast('Insira uma URL primeiro!', 'error'); return; }
+        showToast('Testando conexão...', 'info');
+        setStatus('syncing');
+        try {
+            const resp = await fetch(url + '?action=ping', { redirect: 'follow' });
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.success) { setStatus('online'); showToast('Conexão OK!', 'success'); }
+                else { throw new Error('Resposta inesperada'); }
+            } else { throw new Error('HTTP ' + resp.status); }
+        } catch(err) { setStatus('offline'); showToast('Falha: ' + err.message, 'error'); }
+    }
+
+    // ==================== GOOGLE SHEETS SYNC ====================
+    function prepareForSheets(lancamentos) {
+        return lancamentos.map(l => {
+            const prepared = {...l};
+            DATE_FIELDS.forEach(f => { if (prepared[f]) prepared[f] = formatDateBR(prepared[f]); });
+            NUMERIC_FIELDS.forEach(f => { prepared[f] = prepared[f] ? parseNum(prepared[f]) : 0; });
+            return prepared;
+        });
+    }
+
+    function normalizeFromSheets(lancamentos) {
+        return lancamentos.map(l => {
+            const norm = {...l};
+            DATE_FIELDS.forEach(f => { if (norm[f]) norm[f] = parseDate(norm[f]); });
+            if (norm.timestamp) norm.timestamp = parseDate(norm.timestamp) + 'T00:00:00.000Z';
+            NUMERIC_FIELDS.forEach(f => {
+                const raw = norm[f];
+                if (raw !== undefined && raw !== null && raw !== '' && raw !== 0) {
+                    norm[f] = typeof raw === 'number' ? String(raw) : (parseNum(raw) !== 0 ? String(parseNum(raw)) : '');
+                } else { norm[f] = ''; }
+            });
+            return norm;
+        });
+    }
+
+    async function syncToSheets() {
+        if (!GOOGLE_SHEETS_URL) return;
+        const allData = getData();
+        const sheetsData = prepareForSheets(allData);
+        setStatus('syncing');
+        try {
+            const resp = await fetch(GOOGLE_SHEETS_URL, { method: 'POST', redirect: 'follow', body: JSON.stringify({ action: 'saveAll', data: sheetsData }) });
+            if (resp.ok) { setStatus('online'); showToast('Salvo no Google Sheets!', 'success'); }
+            else { throw new Error('HTTP ' + resp.status); }
+        } catch(err) { setStatus('online'); showToast('Salvou local. Erro Sheets: ' + err.message, 'info'); }
+    }
+
+    async function syncFromSheets() {
+        if (!GOOGLE_SHEETS_URL) { showToast('Configure o Google Sheets primeiro.', 'info'); return; }
+        setStatus('syncing');
+        try {
+            const resp = await fetch(GOOGLE_SHEETS_URL + '?action=getAll', { redirect: 'follow' });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const rawData = await resp.json();
+            if (!Array.isArray(rawData)) throw new Error('Dados inválidos');
+            const data = normalizeFromSheets(rawData);
+            saveData(data);
+            setStatus('online');
+            updateFiltroAnos();
+            renderDashboard();
+            showToast(`${data.length} lançamento(s) carregado(s)!`, 'success');
+        } catch(err) { setStatus('online'); showToast('Erro ao buscar: ' + err.message, 'error'); }
+    }
+
+    // ==================== CALCULATIONS ====================
+    function calculate() {
+        const v = id => parseNum(document.getElementById(id).value);
+        const cambio = v('cambio'), fob_usd = v('fob_usd');
+        const fob_real = fob_usd * cambio;
+        const frete = v('frete'), seguro = v('seguro'), acrescimos = v('acrescimos');
+        const cif = fob_real + frete + seguro;
+        const capatazia = v('capatazia');
+        const va = cif + capatazia;
+        const ii = v('ii'), ipi = v('ipi'), pis = v('pis'), cofins = v('cofins'), icms = v('icms'), multa = v('multa');
+        const afrmm = v('afrmm'), siscomex = v('siscomex'), outras_da = v('outras_da');
+        const armazenagem = v('armazenagem'), desconsolidacao = v('desconsolidacao');
+        const transp_interno = v('transp_interno'), liberacao = v('liberacao');
+        const hon_sda = v('hon_sda'), prest_serv = v('prest_serv'), desp_div = v('desp_div');
+        const total = cif + ii + ipi + pis + cofins + icms + multa + afrmm + siscomex + outras_da + armazenagem + desconsolidacao + transp_interno + liberacao + hon_sda + prest_serv + desp_div;
+        const fator = fob_real > 0 ? total / fob_real : 0;
+
+        // Totais da aba principal
+        document.getElementById('fob_real').textContent = fmt.format(fob_real);
+        document.getElementById('cif').textContent = fmt.format(cif);
+        document.getElementById('valor_aduaneiro').textContent = fmt.format(va);
+        document.getElementById('total').textContent = fmt.format(total);
+        document.getElementById('fator').textContent = fator.toFixed(3);
+
+        // === ABA RESUMO DO CONTAINER ===
+        const logistica = frete + seguro + acrescimos;
+        const tributos = ii + ipi + pis + cofins + icms;
+        const desp_adu = afrmm + siscomex + outras_da + armazenagem + desconsolidacao + transp_interno + liberacao;
+        const despachante = hon_sda + prest_serv + desp_div;
+
+        // Câmbio em destaque
+        const cambioEl = document.getElementById('modal_cambio_destaque');
+        if (cambioEl) cambioEl.textContent = `R$ ${cambio.toFixed(4)}`;
+
+        // Função para setar valores e %
+        const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = fmt.format(val); };
+        const setPct = (idPct, val, base) => { 
+            const el = document.getElementById(idPct); 
+            if (el && base > 0) el.textContent = ((val / base) * 100).toFixed(1) + '% do FOB';
+            else if (el) el.textContent = '0% do FOB';
+        };
+
+        setEl('modal_res_produtos', fob_real);
+        setEl('modal_res_logistica', logistica);
+        setEl('modal_res_tributos', tributos);
+        setEl('modal_res_desp_adu', desp_adu);
+        setEl('modal_res_despachante', despachante);
+        setEl('modal_res_total', total);
+        setEl('modal_res_cif', cif);
+        setEl('modal_res_va', va);
+
+        // Percentuais do FOB
+        setPct('modal_pct_produtos', fob_real, fob_real);
+        setPct('modal_pct_logistica', logistica, fob_real);
+        setPct('modal_pct_tributos', tributos, fob_real);
+        setPct('modal_pct_desp_adu', desp_adu, fob_real);
+        setPct('modal_pct_despachante', despachante, fob_real);
+        setPct('modal_pct_total', total, fob_real);
+
+        // Fator
+        const fatorEl = document.getElementById('modal_res_fator');
+        if (fatorEl) fatorEl.textContent = fator.toFixed(3);
+
+        // Detalhes
+        setEl('modal_det_frete', frete); setEl('modal_det_seguro', seguro); setEl('modal_det_acrescimos', acrescimos);
+        setEl('modal_det_ii', ii); setEl('modal_det_ipi', ipi); setEl('modal_det_pis', pis);
+        setEl('modal_det_cofins', cofins); setEl('modal_det_icms', icms);
+        setEl('modal_det_afrmm', afrmm); setEl('modal_det_siscomex', siscomex); setEl('modal_det_outras_da', outras_da);
+        setEl('modal_det_armazenagem', armazenagem); setEl('modal_det_desconsolidacao', desconsolidacao);
+        setEl('modal_det_transp_interno', transp_interno); setEl('modal_det_liberacao', liberacao);
+        setEl('modal_det_hon_sda', hon_sda); setEl('modal_det_prest_serv', prest_serv); setEl('modal_det_desp_div', desp_div);
+
+        // Multa
+        const multaBox = document.getElementById('modal_multa_box');
+        const multaEl = document.getElementById('modal_det_multa');
+        if (multaBox && multaEl) {
+            if (multa > 0) { multaBox.classList.remove('hidden'); multaEl.textContent = fmt.format(multa); }
+            else { multaBox.classList.add('hidden'); }
+        }
+
+        // Barra de composição percentual
+        if (fob_real > 0) {
+            const pProd = 100;
+            const pLog = (logistica / fob_real * 100);
+            const pTrib = (tributos / fob_real * 100);
+            const pDA = (desp_adu / fob_real * 100);
+            const pDesp = (despachante / fob_real * 100);
+
+            const barra = document.getElementById('modal_barra_composicao');
+            if (barra) {
+                barra.innerHTML = `
+                    <div class="bg-emerald-500 h-full transition-all duration-500" style="width:${pProd}%"></div>
+                    <div class="bg-blue-500 h-full transition-all duration-500" style="width:${pLog}%"></div>
+                    <div class="bg-purple-500 h-full transition-all duration-500" style="width:${pTrib}%"></div>
+                    <div class="bg-cyan-500 h-full transition-all duration-500" style="width:${pDA}%"></div>
+                    <div class="bg-orange-500 h-full transition-all duration-500" style="width:${pDesp}%"></div>
+                `;
+            }
+
+            const setBarPct = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val.toFixed(1) + '%'; };
+            setBarPct('modal_barra_produtos', pProd);
+            setBarPct('modal_barra_logistica', pLog);
+            setBarPct('modal_barra_tributos', pTrib);
+            setBarPct('modal_barra_desp_adu', pDA);
+            setBarPct('modal_barra_despachante', pDesp);
+        }
+    }
+
+    function computeLanc(l) {
+        const n = k => parseNum(l[k]);
+        const cambio = n('cambio'), fob_usd = n('fob_usd');
+        const fob_real = fob_usd * cambio;
+        const frete = n('frete'), seguro = n('seguro'), acrescimos = n('acrescimos');
+        const cif = fob_real + frete + seguro;
+        const ii = n('ii'), ipi = n('ipi'), pis = n('pis'), cofins = n('cofins'), icms = n('icms'), multa = n('multa');
+        const afrmm = n('afrmm'), siscomex = n('siscomex'), outras_da = n('outras_da');
+        const armazenagem = n('armazenagem'), desconsolidacao = n('desconsolidacao');
+        const transp_interno = n('transp_interno'), liberacao = n('liberacao');
+        const hon_sda = n('hon_sda'), prest_serv = n('prest_serv'), desp_div = n('desp_div');
+
+        const logistica = frete + seguro + acrescimos;
+        const tributos = ii + ipi + pis + cofins + icms;
+        const desp_adu = afrmm + siscomex + outras_da + armazenagem + desconsolidacao + transp_interno + liberacao;
+        const despachante = hon_sda + prest_serv + desp_div;
+        const total = cif + ii + ipi + pis + cofins + icms + multa + afrmm + siscomex + outras_da + armazenagem + desconsolidacao + transp_interno + liberacao + hon_sda + prest_serv + desp_div;
+        const fator = fob_real > 0 ? total / fob_real : 0;
+
+        let diasEC = 0, diasCD = 0, diasED = 0;
+        const dEmb = makeDate(l.data_embarque);
+        const dCheg = makeDate(l.data_chegada);
+        const dDesemb = makeDate(l.data_desembaraco);
+        if (dEmb && dCheg) diasEC = Math.floor((dCheg - dEmb) / 86400000);
+        if (dCheg && dDesemb) diasCD = Math.floor((dDesemb - dCheg) / 86400000);
+        if (dEmb && dDesemb) diasED = Math.floor((dDesemb - dEmb) / 86400000);
+
+        return { fob_real, logistica, tributos, desp_adu, despachante, total, fator, diasEC, diasCD, diasED };
+    }
+
+    // ==================== FORM ====================
+    function getFormData() {
+        const data = { timestamp: new Date().toISOString() };
+        FIELD_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            let val = el.value;
+            if (NUMERIC_FIELDS.includes(id)) {
+                const num = parseNum(val);
+                val = num !== 0 ? String(num) : '';
+            }
+            data[id] = val;
+        });
+        return data;
+    }
+
+    function setFormData(d) {
+        FIELD_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            let val = d[id] || '';
+            if (DATE_FIELDS.includes(id) && val) val = parseDate(val);
+            if (NUMERIC_FIELDS.includes(id) && val) {
+                const num = parseNum(val);
+                val = num !== 0 ? String(num).replace('.', ',') : '';
+            }
+            el.value = val;
+        });
+        calculate();
+    }
+
+    function clearForm() {
+        FIELD_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.value = ''; if (el.tagName === 'SELECT') el.selectedIndex = 0; }
+        });
+        calculate();
+    }
+
+    // ==================== SAVE / EDIT / DELETE ====================
+    async function salvarLancamento() {
+        const tipo = document.getElementById('tipo_container').value;
+        const fob = parseNum(document.getElementById('fob_usd').value);
+        const cambio = parseNum(document.getElementById('cambio').value);
+
+        if (!tipo || fob <= 0 || cambio <= 0) {
+            showToast('Preencha: Tipo, Câmbio e FOB (USD)!', 'error');
+            return;
+        }
+
+        const data = getFormData();
+        const lancamentos = getData();
+
+        if (editingIndex !== null) {
+            data.timestamp = lancamentos[editingIndex].timestamp || data.timestamp;
+            lancamentos[editingIndex] = data;
+            showToast('Lançamento atualizado!', 'success');
+        } else {
+            lancamentos.push(data);
+            showToast('Lançamento salvo!', 'success');
+        }
+
+        saveData(lancamentos);
+        updateFiltroAnos();
+        renderDashboard();
+        closeModal();
+
+        if (GOOGLE_SHEETS_URL) { syncToSheets(); }
+    }
+
+    function editLancamento(realIdx) { openModal(realIdx); }
+
+    async function deleteLancamento(realIdx) {
+        if (!confirm('Excluir este lançamento?')) return;
+        const lancamentos = getData();
+        lancamentos.splice(realIdx, 1);
+        saveData(lancamentos);
+        updateFiltroAnos();
+        renderDashboard();
+        showToast('Lançamento excluído!', 'success');
+        if (GOOGLE_SHEETS_URL) syncToSheets();
+    }
+
+    // ==================== FILTERS ====================
+    function getFiltered() {
+        const all = getData();
+        const fAno = document.getElementById('filtro_ano').value;
+        const fMes = document.getElementById('filtro_mes').value;
+        const fTipo = document.getElementById('filtro_tipo').value;
+        const fExp = document.getElementById('filtro_exportador').value;
+        const withIdx = all.map((l, idx) => ({ ...l, _idx: idx }));
+        if (!fAno && !fMes && !fTipo && !fExp) return withIdx;
+        return withIdx.filter(l => {
+            const d = getBestDate(l);
+            if (fTipo && l.tipo_container !== fTipo) return false;
+            if (fExp) {
+                const exp = (l.exportadores || '').toLowerCase();
+                if (!exp.includes(fExp.toLowerCase())) return false;
+            }
+            if (!d) return !fAno && !fMes;
+            if (fAno && d.getFullYear().toString() !== fAno) return false;
+            if (fMes && String(d.getMonth() + 1).padStart(2, '0') !== fMes) return false;
+            return true;
+        });
+    }
+
+    function limparFiltros() {
+        document.getElementById('filtro_ano').value = '';
+        document.getElementById('filtro_mes').value = '';
+        document.getElementById('filtro_tipo').value = '';
+        document.getElementById('filtro_exportador').value = '';
+        renderDashboard();
+    }
+
+    function updateFiltroAnos() {
+        const anos = new Set();
+        const exportadores = new Set();
+        const all = getData();
+        all.forEach(l => {
+            const d = getBestDate(l);
+            if (d) {
+                const ano = d.getFullYear();
+                if (ano > 1900 && ano < 2100) { anos.add(ano); }
+            }
+            if (l.exportadores) {
+                l.exportadores.split(/\n|,|;/).map(e => e.trim()).filter(Boolean).forEach(e => exportadores.add(e));
+            }
+        });
+        const sel = document.getElementById('filtro_ano');
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">Todos os Anos</option>';
+        Array.from(anos).sort().reverse().forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = String(a);
+            opt.textContent = String(a);
+            sel.appendChild(opt);
+        });
+        if (cur) sel.value = cur;
+
+        const expSel = document.getElementById('filtro_exportador');
+        const curExp = expSel.value;
+        expSel.innerHTML = '<option value="">Todos os Exportadores</option>';
+        Array.from(exportadores).sort((a, b) => a.localeCompare(b)).forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            expSel.appendChild(opt);
+        });
+        if (curExp) expSel.value = curExp;
+    }
+
+    // ==================== DASHBOARD RENDER ====================
+    function renderDashboard() {
+        const lancamentos = getFiltered();
+        let tProd = 0, tLog = 0, tTrib = 0, tDA = 0, tDesp = 0, tGeral = 0, tFator = 0, cFator = 0;
+        let sEC = 0, sCD = 0, sED = 0, cEC = 0, cCD = 0, cED = 0;
+        let tCIF = 0, tVA = 0;
+        let tCambio = 0, cCambio = 0;
+        let tFrete = 0, tSeguro = 0, tAcrescimos = 0;
+        let tII = 0, tIPI = 0, tPIS = 0, tCOFINS = 0, tICMS = 0;
+        let tAFRMM = 0, tSiscomex = 0, tOutrasDA = 0, tArmazenagem = 0, tDesconsolidacao = 0, tTranspInterno = 0, tLiberacao = 0;
+        let tHonSDA = 0, tPrestServ = 0, tDespDiv = 0;
+        const lProd = [], lLog = [], lTrib = [], lDA = [], lDesp = [];
+        const porMes = {};
+
+        lancamentos.forEach((l) => {
+            const realIdx = l._idx;
+            const c = computeLanc(l);
+            const n2 = k => parseNum(l[k]);
+            tProd += c.fob_real; tLog += c.logistica; tTrib += c.tributos; tDA += c.desp_adu; tDesp += c.despachante; tGeral += c.total;
+            if (c.fator > 0) { tFator += c.fator; cFator++; }
+            if (c.diasEC > 0) { sEC += c.diasEC; cEC++; }
+            if (c.diasCD > 0) { sCD += c.diasCD; cCD++; }
+            if (c.diasED > 0) { sED += c.diasED; cED++; }
+
+            const fob_r = n2('fob_usd') * n2('cambio');
+            const cambioVal = n2('cambio');
+            if (cambioVal > 0) { tCambio += cambioVal; cCambio++; }
+            const frete = n2('frete'), seguro = n2('seguro');
+            const cifL = fob_r + frete + seguro;
+            tCIF += cifL;
+            tVA += cifL + n2('capatazia');
+
+            tFrete += frete; tSeguro += seguro; tAcrescimos += n2('acrescimos');
+            tII += n2('ii'); tIPI += n2('ipi'); tPIS += n2('pis'); tCOFINS += n2('cofins'); tICMS += n2('icms');
+            tAFRMM += n2('afrmm'); tSiscomex += n2('siscomex'); tOutrasDA += n2('outras_da');
+            tArmazenagem += n2('armazenagem'); tDesconsolidacao += n2('desconsolidacao');
+            tTranspInterno += n2('transp_interno'); tLiberacao += n2('liberacao');
+            tHonSDA += n2('hon_sda'); tPrestServ += n2('prest_serv'); tDespDiv += n2('desp_div');
+
+            const d = getBestDate(l);
+            if (d) {
+                const chave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                if (!porMes[chave]) porMes[chave] = { prod: 0, log: 0, trib: 0, da: 0, desp: 0, cambioSum: 0, cambioCount: 0, count: 0 };
+                porMes[chave].prod += c.fob_real; porMes[chave].log += c.logistica; porMes[chave].trib += c.tributos;
+                porMes[chave].da += c.desp_adu; porMes[chave].desp += c.despachante;
+                porMes[chave].count++;
+                if (cambioVal > 0) { porMes[chave].cambioSum += cambioVal; porMes[chave].cambioCount++; }
+            }
+
+            const ref = (l.ref_montreal || `#${realIdx + 1}`).substring(0, 18);
+            const tipo = l.tipo_container || '-';
+            lProd.push({ i: realIdx, ref, tipo, val: c.fob_real });
+            lLog.push({ i: realIdx, ref, tipo, val: c.logistica });
+            lTrib.push({ i: realIdx, ref, tipo, val: c.tributos });
+            lDA.push({ i: realIdx, ref, tipo, val: c.desp_adu });
+            lDesp.push({ i: realIdx, ref, tipo, val: c.despachante });
+        });
+
+        const n = lancamentos.length;
+        const setVal = (id, v) => { const el = document.getElementById(id); if (el) { el.textContent = fmt.format(v); el.title = fmt.format(v); } };
+
+        // Tempos médios
+        document.getElementById('tempo_embarque_chegada').textContent = `${(cEC > 0 ? sEC / cEC : 0).toFixed(1)} dias`;
+        document.getElementById('tempo_chegada_desembaraco').textContent = `${(cCD > 0 ? sCD / cCD : 0).toFixed(1)} dias`;
+        document.getElementById('tempo_embarque_desembaraco').textContent = `${(cED > 0 ? sED / cED : 0).toFixed(1)} dias`;
+
+        // Cards detalhados - totais
+        setVal('dash_total_produtos', tProd);
+        setVal('dash_total_logistica', tLog);
+        setVal('dash_total_tributos', tTrib);
+        setVal('dash_total_desp_adu', tDA);
+        setVal('dash_total_despachante', tDesp);
+        setVal('dash_total_geral', tGeral);
+
+        // % do FOB
+        const setPctFob = (id, val, suffix = ' do FOB') => {
+            const el = document.getElementById(id);
+            if (el && tProd > 0) el.textContent = ((val / tProd) * 100).toFixed(1) + '%' + suffix;
+            else if (el) el.textContent = '0%' + suffix;
+        };
+        setPctFob('pct_fob_logistica', tLog);
+        setPctFob('pct_fob_tributos', tTrib);
+        setPctFob('pct_fob_desp_adu', tDA);
+        setPctFob('pct_fob_despachante', tDesp);
+        setPctFob('pct_fob_total', tGeral);
+        setPctFob('pct_det_frete', tFrete, '');
+        setPctFob('pct_det_seguro', tSeguro, '');
+        setPctFob('pct_det_acrescimos', tAcrescimos, '');
+        setPctFob('pct_det_ii', tII, '');
+        setPctFob('pct_det_ipi', tIPI, '');
+        setPctFob('pct_det_pis', tPIS, '');
+        setPctFob('pct_det_cofins', tCOFINS, '');
+        setPctFob('pct_det_icms', tICMS, '');
+        setPctFob('pct_det_afrmm', tAFRMM, '');
+        setPctFob('pct_det_siscomex', tSiscomex, '');
+        setPctFob('pct_det_outras_da', tOutrasDA, '');
+        setPctFob('pct_det_armazenagem', tArmazenagem, '');
+        setPctFob('pct_det_desconsolidacao', tDesconsolidacao, '');
+        setPctFob('pct_det_transp_interno', tTranspInterno, '');
+        setPctFob('pct_det_liberacao', tLiberacao, '');
+        setPctFob('pct_det_hon_sda', tHonSDA, '');
+        setPctFob('pct_det_prest_serv', tPrestServ, '');
+        setPctFob('pct_det_desp_div', tDespDiv, '');
+
+        // Sub-detalhes
+        setVal('dash_det_frete', tFrete); setVal('dash_det_seguro', tSeguro); setVal('dash_det_acrescimos', tAcrescimos);
+        setVal('dash_det_ii', tII); setVal('dash_det_ipi', tIPI); setVal('dash_det_pis', tPIS);
+        setVal('dash_det_cofins', tCOFINS); setVal('dash_det_icms', tICMS);
+        setVal('dash_det_afrmm', tAFRMM); setVal('dash_det_siscomex', tSiscomex); setVal('dash_det_outras_da', tOutrasDA);
+        setVal('dash_det_armazenagem', tArmazenagem); setVal('dash_det_desconsolidacao', tDesconsolidacao);
+        setVal('dash_det_transp_interno', tTranspInterno); setVal('dash_det_liberacao', tLiberacao);
+        setVal('dash_det_hon_sda', tHonSDA); setVal('dash_det_prest_serv', tPrestServ); setVal('dash_det_desp_div', tDespDiv);
+
+        // CIF, VA, Fator
+        setVal('dash_cif_total', tCIF);
+        setVal('dash_va_total', tVA);
+        const fatorMedio = (cFator > 0 ? tFator / cFator : 0);
+        const dashFatorEl = document.getElementById('dash_fator_medio');
+        if (dashFatorEl) dashFatorEl.textContent = fatorMedio.toFixed(3);
+
+        // Barra de distribuição percentual
+        const totalComp = tProd + tLog + tTrib + tDA + tDesp;
+        if (totalComp > 0) {
+            const pP = (tProd / totalComp * 100), pL = (tLog / totalComp * 100);
+            const pT = (tTrib / totalComp * 100), pD = (tDA / totalComp * 100), pDe = (tDesp / totalComp * 100);
+            const barra = document.getElementById('dash_barra_composicao');
+            if (barra) {
+                barra.innerHTML = `
+                    <div class="bg-emerald-500 h-full transition-all duration-500" style="width:${pP}%"></div>
+                    <div class="bg-blue-500 h-full transition-all duration-500" style="width:${pL}%"></div>
+                    <div class="bg-purple-500 h-full transition-all duration-500" style="width:${pT}%"></div>
+                    <div class="bg-cyan-500 h-full transition-all duration-500" style="width:${pD}%"></div>
+                    <div class="bg-orange-500 h-full transition-all duration-500" style="width:${pDe}%"></div>
+                `;
+            }
+            const setPct = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val.toFixed(1) + '%'; };
+            setPct('dash_pct_produtos', pP); setPct('dash_pct_logistica', pL);
+            setPct('dash_pct_tributos', pT); setPct('dash_pct_desp_adu', pD); setPct('dash_pct_despachante', pDe);
+        }
+
+        // Médias
+        document.getElementById('media_produtos').textContent = fmt.format(n > 0 ? tProd / n : 0);
+        document.getElementById('media_logistica').textContent = fmt.format(n > 0 ? tLog / n : 0);
+        document.getElementById('media_tributos').textContent = fmt.format(n > 0 ? tTrib / n : 0);
+        document.getElementById('media_desp_adu').textContent = fmt.format(n > 0 ? tDA / n : 0);
+        document.getElementById('media_despachante').textContent = fmt.format(n > 0 ? tDesp / n : 0);
+
+        // Listas
+        renderList(lProd, 'lista_produtos'); renderList(lLog, 'lista_logistica');
+        renderList(lTrib, 'lista_tributos'); renderList(lDA, 'lista_desp_adu'); renderList(lDesp, 'lista_despachante');
+        renderLancamentos(lancamentos);
+
+        // Dólar médio
+        const dolarMedio = cCambio > 0 ? tCambio / cCambio : 0;
+        const dolarEl = document.getElementById('dash_dolar_medio');
+        if (dolarEl) dolarEl.textContent = dolarMedio > 0 ? `R$ ${dolarMedio.toFixed(4)}` : 'R$ 0,00';
+
+        document.getElementById('contagem_filtros').textContent = `${n} lançamento${n !== 1 ? 's' : ''}`;
+        document.getElementById('count_lancamentos').textContent = `${n} lançamento${n !== 1 ? 's' : ''} registrado${n !== 1 ? 's' : ''}`;
+        updateCharts(porMes, { tProd, tLog, tTrib, tDA, tDesp });
+    }
+
+    function renderList(list, elId) {
+        const el = document.getElementById(elId);
+        if (!list.length) { el.innerHTML = '<p class="text-slate-500 text-center py-4 text-sm">Nenhum item</p>'; return; }
+        el.innerHTML = list.map(it => `
+            <div class="flex justify-between items-center py-2 px-3 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors cursor-pointer" onclick="editLancamento(${it.i})">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="text-[10px] font-medium text-indigo-400 bg-indigo-400/10 px-1.5 py-0.5 rounded flex-shrink-0">${it.tipo}</span>
+                    <span class="text-xs text-slate-300 truncate">${it.ref}</span>
+                </div>
+                <span class="font-bold text-xs text-slate-200 ml-2 flex-shrink-0">${fmt.format(it.val)}</span>
+            </div>
+        `).join('');
+    }
+
+    function renderLancamentos(lancamentos) {
+        const el = document.getElementById('lista_lancamentos');
+        if (!lancamentos.length) {
+            el.innerHTML = `<div class="text-center py-12"><div class="w-20 h-20 bg-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-4"><i class="fas fa-ship text-slate-500 text-4xl"></i></div><p class="text-slate-400 text-lg mb-2">Nenhum lançamento</p><p class="text-slate-500 text-sm">Clique em "Novo Lançamento" para começar</p></div>`;
+            return;
+        }
+        el.innerHTML = `<div class="grid gap-3">${lancamentos.map((l) => {
+            const realIdx = l._idx;
+            const c = computeLanc(l);
+            const ref = (l.ref_montreal || `#${realIdx + 1}`).substring(0, 25);
+            const exp = (l.exportadores || 'N/D').substring(0, 20);
+            const dDesemb = makeDate(l.data_desembaraco);
+            const dataDemb = dDesemb ? dDesemb.toLocaleDateString('pt-BR') : 'N/D';
+            return `<div class="group bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600 hover:border-indigo-500/50 rounded-xl p-4 transition-all cursor-pointer" onclick="editLancamento(${realIdx})">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1 flex-wrap">
+                            <span class="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 text-xs font-bold rounded-full">${l.tipo_container || 'N/D'}</span>
+                            <span class="text-xs text-slate-400">DI: ${l.di || 'N/D'}</span>
+                            <span class="text-xs text-slate-400">${l.incoterm || ''}</span>
+                        </div>
+                        <h4 class="font-bold text-white text-sm truncate">${ref}</h4>
+                        <p class="text-xs text-slate-400 truncate">Exp: ${exp}</p>
+                        <p class="text-xs text-slate-500 mt-1">Desemb: ${dataDemb} | Navio: ${l.navio || 'N/D'}</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="text-right">
+                            <p class="text-xl font-black text-emerald-400">${fmt.format(c.total)}</p>
+                            <p class="text-xs font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded inline-block">Fator: ${c.fator.toFixed(3)}</p>
+                            <p class="text-xs font-bold text-orange-400 mt-1">Câmbio: R$ ${parseNum(l.cambio).toFixed(4)}</p>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <button onclick="event.stopPropagation(); editLancamento(${realIdx})" class="w-8 h-8 bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 rounded-lg flex items-center justify-center transition-colors" title="Editar"><i class="fas fa-edit text-xs"></i></button>
+                            <button onclick="event.stopPropagation(); deleteLancamento(${realIdx})" class="w-8 h-8 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded-lg flex items-center justify-center transition-colors" title="Excluir"><i class="fas fa-trash-alt text-xs"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('')}</div>`;
+    }
+
+    // ==================== REGRESSÃO LINEAR ====================
+    function linearRegression(data) {
+        const n = data.length;
+        if (n < 2) return data;
+        let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+        for (let i = 0; i < n; i++) { sumX += i; sumY += data[i]; sumXY += i * data[i]; sumX2 += i * i; }
+        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        const intercept = (sumY - slope * sumX) / n;
+        return data.map((_, i) => Math.max(0, intercept + slope * i));
+    }
+
+    // ==================== CHARTS ====================
+    function updateCharts(porMes, totais) {
+        const meses = Object.keys(porMes).sort();
+        const nomesMes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        const labels = meses.map(m => { const [a, mes] = m.split('-'); return `${nomesMes[parseInt(mes)-1]}/${a.slice(2)}`; });
+
+        // Médias por mês
+        const prodData = meses.map(m => porMes[m].count > 0 ? porMes[m].prod / porMes[m].count : 0);
+        const logData = meses.map(m => porMes[m].count > 0 ? porMes[m].log / porMes[m].count : 0);
+        const tribData = meses.map(m => porMes[m].count > 0 ? porMes[m].trib / porMes[m].count : 0);
+        const daData = meses.map(m => porMes[m].count > 0 ? porMes[m].da / porMes[m].count : 0);
+        const despData = meses.map(m => porMes[m].count > 0 ? porMes[m].desp / porMes[m].count : 0);
+        const dolarData = meses.map(m => porMes[m].cambioCount > 0 ? porMes[m].cambioSum / porMes[m].cambioCount : 0);
+
+        // Linhas de tendência
+        const trendProd = linearRegression(prodData);
+        const trendLog = linearRegression(logData);
+        const trendTrib = linearRegression(tribData);
+        const trendDA = linearRegression(daData);
+        const trendDesp = linearRegression(despData);
+
+        // Plugin dólar
+        const dolarLabelsPlugin = {
+            id: 'dolarLabels',
+            afterDatasetsDraw(chart) {
+                const meta = chart.getDatasetMeta(6);
+                if (!meta || meta.hidden) return;
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.font = 'bold 10px Inter';
+                ctx.fillStyle = '#facc15';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                meta.data.forEach((point, i) => {
+                    const val = dolarData[i];
+                    if (val > 0) ctx.fillText('R$ ' + val.toFixed(4), point.x, point.y - 8);
+                });
+                ctx.restore();
+            }
+        };
+
+        if (chartCustos) chartCustos.destroy();
+        chartCustos = new Chart(document.getElementById('chartCustos').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Produtos', data: prodData, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.08)', fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#10b981', yAxisID: 'y' },
+                    { label: 'Tend. Produtos', data: trendProd, borderColor: '#10b981', backgroundColor: 'transparent', fill: false, borderDash: [8, 4], borderWidth: 1.5, pointRadius: 0, pointHitRadius: 0, yAxisID: 'y' },
+                    { label: 'Logística', data: logData, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.08)', fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#3b82f6', yAxisID: 'y' },
+                    { label: 'Tend. Logística', data: trendLog, borderColor: '#3b82f6', backgroundColor: 'transparent', fill: false, borderDash: [8, 4], borderWidth: 1.5, pointRadius: 0, pointHitRadius: 0, yAxisID: 'y' },
+                    { label: 'Tributos', data: tribData, borderColor: '#a855f7', backgroundColor: 'rgba(168,85,247,0.08)', fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#a855f7', yAxisID: 'y' },
+                    { label: 'Tend. Tributos', data: trendTrib, borderColor: '#a855f7', backgroundColor: 'transparent', fill: false, borderDash: [8, 4], borderWidth: 1.5, pointRadius: 0, pointHitRadius: 0, yAxisID: 'y' },
+                    { label: 'Desp. Aduan.', data: daData, borderColor: '#06b6d4', backgroundColor: 'rgba(6,182,212,0.08)', fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#06b6d4', yAxisID: 'y' },
+                    { label: 'Tend. Desp. Aduan.', data: trendDA, borderColor: '#06b6d4', backgroundColor: 'transparent', fill: false, borderDash: [8, 4], borderWidth: 1.5, pointRadius: 0, pointHitRadius: 0, yAxisID: 'y' },
+                    { label: 'Despachante', data: despData, borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.08)', fill: true, tension: 0.4, borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#f97316', yAxisID: 'y' },
+                    { label: 'Tend. Despachante', data: trendDesp, borderColor: '#f97316', backgroundColor: 'transparent', fill: false, borderDash: [8, 4], borderWidth: 1.5, pointRadius: 0, pointHitRadius: 0, yAxisID: 'y' },
+                    { label: 'Dólar Médio (R$)', data: dolarData, borderColor: '#facc15', backgroundColor: 'rgba(250,204,21,0.10)', fill: false, tension: 0.3, borderWidth: 3, pointRadius: 6, pointBackgroundColor: '#facc15', pointBorderColor: '#fef08a', pointBorderWidth: 2, yAxisID: 'y1' }
+                ]
+            },
+            plugins: [dolarLabelsPlugin],
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                layout: { padding: { top: 25 } },
+                plugins: {
+                    legend: { labels: { color: '#94a3b8', font: { size: 10 }, filter: (item) => !item.text.includes('Tend.') } },
+                    tooltip: { filter: (item) => !item.dataset.label.includes('Tend.'), callbacks: { label: (ctx) => ctx.dataset.yAxisID === 'y1' ? `${ctx.dataset.label}: R$ ${ctx.parsed.y.toFixed(4)}` : `${ctx.dataset.label}: ${fmt.format(ctx.parsed.y)}` } }
+                },
+                scales: {
+                    x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#334155' } },
+                    y: { type: 'linear', position: 'left', ticks: { color: '#64748b', font: { size: 9 }, callback: v => fmt.format(v) }, grid: { color: '#334155' }, title: { display: true, text: 'Custos Médios (R$)', color: '#64748b', font: { size: 10 } } },
+                    y1: { type: 'linear', position: 'right', ticks: { color: '#facc15', font: { size: 9, weight: 'bold' }, callback: v => 'R$ ' + v.toFixed(2) }, grid: { drawOnChartArea: false }, title: { display: true, text: 'Dólar (R$)', color: '#facc15', font: { size: 10, weight: 'bold' } } }
+                }
+            }
+        });
+
+        // Treemap colorido
+        if (chartComposicao) chartComposicao.destroy();
+
+        const treemapData = [
+            { cat: 'Produtos', val: totais.tProd, color: '#10b981' },
+            { cat: 'Logística', val: totais.tLog, color: '#3b82f6' },
+            { cat: 'Tributos', val: totais.tTrib, color: '#a855f7' },
+            { cat: 'Desp. Aduan.', val: totais.tDA, color: '#06b6d4' },
+            { cat: 'Despachante', val: totais.tDesp, color: '#f97316' }
+        ].filter(d => d.val > 0);
+
+        const totalAll = treemapData.reduce((s, d) => s + d.val, 0);
+
+        chartComposicao = new Chart(document.getElementById('chartComposicao').getContext('2d'), {
+            type: 'treemap',
+            data: {
+                datasets: [{
+                    tree: treemapData,
+                    key: 'val',
+                    groups: ['cat'],
+                    backgroundColor: (ctx) => {
+                       if (ctx.dataIndex >= 0 && ctx.dataIndex < treemapData.length) {
+                            return treemapData[ctx.dataIndex].color;
+                        }
+                        return '#334155';
+                    },
+                    borderColor: '#0f172a',
+                    borderWidth: 3,
+                    borderRadius: 10,
+                    spacing: 4,
+                    labels: {
+                        display: true,
+                        align: 'center',
+                        position: 'middle',
+                        overflow: 'fit',
+                        color: '#ffffff',
+                        font: [{ size: 16, weight: 'bold', lineHeight: 1.4 }, { size: 13, weight: 'normal', lineHeight: 1.3 }, { size: 12, weight: 'bold', lineHeight: 1.3 }],
+                        formatter: (ctx) => {
+                            if (!ctx.raw || !ctx.raw._data) return '';
+                            const item = ctx.raw._data;
+                            const pct = totalAll > 0 ? (item.val / totalAll * 100).toFixed(1) : 0;
+                            return [item.cat, fmt.format(item.val), pct + '%'];
+                        }
+                    },
+                    captions: { display: false }
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { backgroundColor: 'rgba(15,23,42,0.95)', titleFont: { size: 14, weight: 'bold' }, bodyFont: { size: 13 }, padding: 12, cornerRadius: 10, callbacks: { title: (items) => items[0]?.raw?._data?.cat || '', label: (item) => { const d = item.raw._data; const pct = totalAll > 0 ? (d.val / totalAll * 100).toFixed(1) : 0; return [fmt.format(d.val), pct + '% do total']; } } }
+                }
+            }
+        });
+    }
+
+    // ==================== MODALS ====================
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.tab-btn').forEach(el => { el.classList.remove('active'); if (el.dataset.tab === tab) el.classList.add('active'); });
+        document.getElementById(`tab-${tab}`).classList.remove('hidden');
+    }
+
+    function openModal(idx = null) {
+        editingIndex = idx;
+        if (idx !== null) {
+            document.getElementById('modal_title').textContent = 'Editar Lançamento';
+            document.getElementById('modal_subtitle').textContent = 'Atualize os dados';
+            document.getElementById('btn_salvar_txt').textContent = 'Atualizar';
+            const allData = getData();
+            if (idx >= 0 && idx < allData.length) setFormData(allData[idx]);
+        } else {
+            document.getElementById('modal_title').textContent = 'Novo Lançamento';
+            document.getElementById('modal_subtitle').textContent = 'Preencha os dados do container';
+            document.getElementById('btn_salvar_txt').textContent = 'Salvar Lançamento';
+            clearForm();
+            const hoje = new Date();
+            document.getElementById('data_registro').value = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+        }
+        switchTab('dados');
+        document.getElementById('modal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() { document.getElementById('modal').classList.add('hidden'); document.body.style.overflow = ''; editingIndex = null; }
+
+    function openModalConfig() {
+        const st = document.getElementById('config-status-text');
+        if (GOOGLE_SHEETS_URL) { st.textContent = 'Online - Conectado ao Google Sheets'; st.className = 'text-green-400'; }
+        else { st.textContent = 'Offline - Usando armazenamento local'; st.className = 'text-yellow-400'; }
+        document.getElementById('sheets_url').value = GOOGLE_SHEETS_URL;
+        document.getElementById('modal_config').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeModalConfig() { document.getElementById('modal_config').classList.add('hidden'); document.body.style.overflow = ''; }
+
+    function openModalInstrucoes() { document.getElementById('modal_instrucoes').classList.remove('hidden'); document.body.style.overflow = ''; }
+    function closeModalInstrucoes() { document.getElementById('modal_instrucoes').classList.add('hidden'); document.body.style.overflow = ''; }
+
+    // ==================== COPY ====================
+    function copyAppsScriptCode() { navigator.clipboard.writeText(APPS_SCRIPT_CODE).then(() => showToast('Código copiado!', 'success')); }
+
+    function copyHeader(name, btn) {
+        navigator.clipboard.writeText(name).then(() => {
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check mr-1"></i>OK!';
+            setTimeout(() => { btn.innerHTML = orig; }, 1500);
+        });
+    }
+
+    function copyAllHeaders() { navigator.clipboard.writeText(HEADERS.join('\t')).then(() => showToast('Cabeçalhos copiados! Cole na célula A1.', 'success')); }
+
+    // ==================== INIT ====================
+    function initInstrucoes() {
+        document.getElementById('code-apps-script').textContent = APPS_SCRIPT_CODE;
+        const grid = document.getElementById('headers-grid');
+        grid.innerHTML = HEADERS.map(h => `<button onclick="copyHeader('${h}', this)" class="text-xs bg-slate-700 hover:bg-slate-600 text-emerald-400 px-2 py-1.5 rounded transition-colors text-left"><i class="fas fa-copy mr-1"></i>${h}</button>`).join('');
+    }
+
+    async function initApp() {
+        checkLocalStorage();
+        document.querySelectorAll('.input-dark').forEach(input => input.addEventListener('input', calculate));
+        ['modal', 'modal_config', 'modal_instrucoes'].forEach(id => {
+            document.getElementById(id).addEventListener('click', e => { if (e.target.id === id) { document.getElementById(id).classList.add('hidden'); document.body.style.overflow = ''; } });
+        });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeModalConfig(); closeModalInstrucoes(); } });
+        initInstrucoes();
+        loadConfig();
+        loadFromLocalStorage();
+        updateFiltroAnos();
+        renderDashboard();
+        if (GOOGLE_SHEETS_URL) await syncFromSheets();
+    }
+
+    document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
