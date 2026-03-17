@@ -102,6 +102,7 @@
                     <select id="filtro_exportador" onchange="renderDashboard()" class="input-dark rounded-lg py-2 px-3 text-sm min-w-[160px]">
                         <option value="">Todos os Exportadores</option>
                     </select>
+                    <input type="text" id="filtro_invoice" oninput="renderDashboard()" placeholder="Filtrar Invoice..." class="input-dark rounded-lg py-2 px-3 text-sm min-w-[160px]">
                     <button onclick="limparFiltros()" class="text-xs text-slate-400 hover:text-white transition-colors px-2">
                         <i class="fas fa-times-circle"></i> Limpar
                     </button>
@@ -1248,14 +1249,19 @@ function handleRequest(e) {
         const fMes = document.getElementById('filtro_mes').value;
         const fTipo = document.getElementById('filtro_tipo').value;
         const fExp = document.getElementById('filtro_exportador').value;
+        const fInv = document.getElementById('filtro_invoice').value.toLowerCase();
         const withIdx = all.map((l, idx) => ({ ...l, _idx: idx }));
-        if (!fAno && !fMes && !fTipo && !fExp) return withIdx;
+        if (!fAno && !fMes && !fTipo && !fExp && !fInv) return withIdx;
         return withIdx.filter(l => {
             const d = getBestDate(l);
             if (fTipo && l.tipo_container !== fTipo) return false;
             if (fExp) {
                 const exp = (l.exportadores || '').toLowerCase();
                 if (!exp.includes(fExp.toLowerCase())) return false;
+            }
+            if (fInv) {
+                const inv = (l.invoices || '').toLowerCase();
+                if (!inv.includes(fInv)) return false;
             }
             if (!d) return !fAno && !fMes;
             if (fAno && d.getFullYear().toString() !== fAno) return false;
@@ -1269,6 +1275,7 @@ function handleRequest(e) {
         document.getElementById('filtro_mes').value = '';
         document.getElementById('filtro_tipo').value = '';
         document.getElementById('filtro_exportador').value = '';
+        document.getElementById('filtro_invoice').value = '';
         renderDashboard();
     }
 
