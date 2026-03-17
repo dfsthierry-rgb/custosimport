@@ -362,10 +362,10 @@
                 </div>
                 <div class="p-6 overflow-y-auto max-h-[calc(95vh-160px)] scrollbar-thin">
                     <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
-                        <button onclick="switchTab('dados')" class="tab-btn active px-4 py-2 rounded-lg text-sm font-medium transition-all flex-shrink-0" data-tab="dados"><i class="fas fa-clipboard-list mr-2"></i>Dados</button>
+                        <button onclick="switchTab('resumo')" class="tab-btn active px-4 py-2 rounded-lg text-sm font-medium transition-all flex-shrink-0" data-tab="resumo"><i class="fas fa-chart-bar mr-2"></i>Resumo</button>
+                        <button onclick="switchTab('dados')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all flex-shrink-0" data-tab="dados"><i class="fas fa-clipboard-list mr-2"></i>Dados</button>
                         <button onclick="switchTab('valores')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all flex-shrink-0" data-tab="valores"><i class="fas fa-dollar-sign mr-2"></i>Valores</button>
                         <button onclick="switchTab('tributos')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all flex-shrink-0" data-tab="tributos"><i class="fas fa-calculator mr-2"></i>Tributos</button>
-                        <button onclick="switchTab('resumo')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition-all flex-shrink-0" data-tab="resumo"><i class="fas fa-chart-bar mr-2"></i>Resumo</button>
                     </div>
 
                     <!-- Dados -->
@@ -1702,7 +1702,7 @@ function handleRequest(e) {
             const hoje = new Date();
             document.getElementById('data_registro').value = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
         }
-        switchTab('dados');
+        switchTab('resumo');
         document.getElementById('modal').classList.remove('hidden');
         document.body.style.overflow = 'hidden';
     }
